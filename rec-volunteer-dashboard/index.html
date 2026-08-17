@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Southwest RE Centers | Volunteer Dashboard</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">SW</span>
+        <div class="brand-text">
+          <h1>Southwest RE Centers</h1>
+          <p>Volunteer Dashboard</p>
+        </div>
+      </div>
+      <button id="refreshBtn" class="refresh-btn" title="Reload from Google Sheet">
+        <span class="refresh-icon">⟳</span> Refresh
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="toolbar">
+      <input id="searchInput" type="text" placeholder="Search by name or email..." />
+
+      <div class="multiselect" id="centerMS">
+        <button type="button" class="ms-btn" id="centerMSBtn">RE Center<span class="ms-badge hidden" id="centerMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="centerMSPanel"></div>
+      </div>
+
+      <div class="multiselect" id="positionMS">
+        <button type="button" class="ms-btn" id="positionMSBtn">Position<span class="ms-badge hidden" id="positionMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="positionMSPanel"></div>
+      </div>
+
+      <div class="multiselect" id="gradeMS">
+        <button type="button" class="ms-btn" id="gradeMSBtn">Grade Level<span class="ms-badge hidden" id="gradeMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="gradeMSPanel"></div>
+      </div>
+
+      <button id="clearFiltersBtn" class="ghost-btn">Clear filters</button>
+      <button id="exportBtn" class="export-btn">⬇ Export to Excel</button>
+    </section>
+
+    <section class="table-meta">
+      <span id="countLabel" class="count-label"></span>
+      <label class="page-size">
+        Rows per page
+        <select id="pageSizeSelect">
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="250" selected>250</option>
+          <option value="1000">1000</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="stateMessage" class="state-message">Loading volunteers…</section>
+
+    <div class="table-wrap">
+      <table class="vol-table hidden" id="volTable">
+        <thead>
+          <tr>
+            <th data-key="fullName">Name <span class="sort-ind"></span></th>
+            <th data-key="center">RE Center <span class="sort-ind"></span></th>
+            <th data-key="position">Position <span class="sort-ind"></span></th>
+            <th data-key="gradeLevel">Grade Level <span class="sort-ind"></span></th>
+            <th data-key="age">Age <span class="sort-ind"></span></th>
+            <th data-key="gender">Gender <span class="sort-ind"></span></th>
+            <th data-key="contact">Contact <span class="sort-ind"></span></th>
+            <th data-key="email">Email <span class="sort-ind"></span></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+
+  </main>
+
+  <!-- Detail overlay -->
+  <div id="detailOverlay" class="overlay hidden">
+    <div class="detail-card">
+      <button id="closeDetail" class="close-btn" aria-label="Close">✕</button>
+      <div class="detail-header">
+        <img id="detailPhoto" class="detail-photo" src="" alt="Headshot" />
+        <div>
+          <h2 id="detailName"></h2>
+          <p id="detailPosition" class="detail-subtitle"></p>
+          <p id="detailCenter" class="detail-subtitle"></p>
+        </div>
+      </div>
+      <dl class="detail-grid" id="detailFields"></dl>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
