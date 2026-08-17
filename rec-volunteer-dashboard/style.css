@@ -28,7 +28,7 @@ body {
 
 /* ===== Topbar ===== */
 .topbar {
-  background: linear-gradient(115deg, var(--navy-dark) 0%, var(--navy) 45%, var(--blue) 100%);
+  background: var(--navy);
   color: white;
   position: sticky;
   top: 0;
@@ -51,15 +51,15 @@ body {
   width: 46px;
   height: 46px;
   border-radius: 13px;
-  background: linear-gradient(150deg, var(--blue-light) 0%, var(--blue) 60%, var(--navy) 100%);
-  color: var(--navy-dark);
+  background: var(--blue-light);
+  color: var(--navy);
   font-weight: 800;
   font-size: 15px;
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.4);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
 }
 
 .brand-text h1 {
@@ -68,10 +68,7 @@ body {
   margin: 0;
   line-height: 1.2;
   letter-spacing: -0.01em;
-  background: linear-gradient(90deg, #ffffff 0%, var(--blue-light) 130%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #ffffff;
 }
 
 .brand-text p {
@@ -206,7 +203,7 @@ body {
 }
 .breakdown-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brown-light), var(--brown));
+  background: var(--brown);
   border-radius: 999px;
 }
 .breakdown-count {
@@ -264,14 +261,14 @@ body {
   padding: 9px 16px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(120deg, var(--brown), var(--brown-light));
+  background: var(--brown);
   color: white;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(107, 74, 43, 0.3);
 }
-.export-btn:hover { filter: brightness(1.06); }
+.export-btn:hover { background: var(--brown-light); }
 
 /* ===== Multi-select ===== */
 .multiselect { position: relative; }
@@ -293,7 +290,7 @@ body {
 .ms-btn .chev { color: var(--text-muted); font-size: 10px; }
 
 .ms-badge {
-  background: var(--blue);
+  background: var(--navy);
   color: white;
   font-size: 11px;
   font-weight: 700;
@@ -394,7 +391,7 @@ body {
 .vol-table thead th {
   position: sticky;
   top: 0;
-  background: linear-gradient(100deg, var(--navy), var(--blue));
+  background: var(--navy);
   color: white;
   text-align: left;
   padding: 12px 16px;
@@ -406,7 +403,7 @@ body {
   white-space: nowrap;
   z-index: 5;
 }
-.vol-table thead th:hover { filter: brightness(1.12); }
+.vol-table thead th:hover { background: var(--navy-dark); }
 .sort-ind { font-size: 10px; opacity: 0.85; }
 
 .vol-table tbody tr {
@@ -476,8 +473,8 @@ body {
   cursor: pointer;
   color: var(--text);
 }
-.pagination button:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
-.pagination button.active { background: var(--blue); border-color: var(--blue); color: white; }
+.pagination button:hover:not(:disabled) { border-color: var(--blue); color: var(--navy); }
+.pagination button.active { background: var(--navy); border-color: var(--navy); color: white; }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ===== Detail overlay ===== */
