@@ -397,14 +397,14 @@ function render() {
         : `<div class="row-initials">${initials(v.fullName)}</div>`;
       return `
         <tr data-id="${escapeAttr(v.id)}">
-          <td><div class="name-cell">${photo}<span>${escapeHtml(v.fullName)}</span></div></td>
-          <td>${escapeHtml(v.center)}</td>
-          <td>${v.position ? `<span class="position-pill">${escapeHtml(v.position)}</span>` : ""}</td>
-          <td>${escapeHtml(v.gradeLevel)}</td>
-          <td>${v.age ?? "—"}</td>
-          <td>${escapeHtml(v.gender)}</td>
-          <td>${escapeHtml(v.contact)}</td>
-          <td>${escapeHtml(v.email)}</td>
+          <td data-label="Name"><div class="name-cell">${photo}<span>${escapeHtml(v.fullName)}</span></div></td>
+          <td data-label="RE Center">${escapeHtml(v.center)}</td>
+          <td data-label="Position">${v.position ? `<span class="position-pill">${escapeHtml(v.position)}</span>` : ""}</td>
+          <td data-label="Grade Level">${escapeHtml(v.gradeLevel)}</td>
+          <td data-label="Age">${v.age ?? "—"}</td>
+          <td data-label="Gender">${escapeHtml(v.gender)}</td>
+          <td data-label="Contact">${escapeHtml(v.contact)}</td>
+          <td data-label="Email">${escapeHtml(v.email)}</td>
         </tr>`;
     })
     .join("");
