@@ -558,7 +558,84 @@ body {
   white-space: pre-line;
 }
 
+/* ===== Responsive: table → stacked cards ===== */
+/* Below this width the 8-column table can't fit without horizontal
+   scrolling inside a fixed-height box, which feels cramped and fiddly on
+   a phone. Instead, each row becomes a self-contained card and the page
+   just scrolls normally — no nested scroll frame. */
+@media (max-width: 760px) {
+  .container { padding: 16px; }
+
+  .topbar-inner { padding: 16px 18px; }
+
+  .toolbar { gap: 8px; }
+
+  .table-meta { flex-wrap: wrap; gap: 8px; }
+
+  .table-wrap {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    max-height: none;
+  }
+
+  .vol-table,
+  .vol-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .vol-table thead { display: none; }
+
+  .vol-table tr {
+    display: block;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(34, 58, 94, 0.06);
+  }
+  .vol-table tr:nth-child(even) { background: var(--card); }
+  .vol-table tr:hover { background: var(--card); }
+
+  .vol-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    white-space: normal;
+    text-align: right;
+    border-bottom: 1px solid var(--cream);
+  }
+  .vol-table td:last-child { border-bottom: none; }
+  .vol-table td:empty { display: none; }
+
+  .vol-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .vol-table td[data-label="Name"] {
+    padding-bottom: 12px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    justify-content: flex-start;
+  }
+  .vol-table td[data-label="Name"]::before { content: none; }
+  .name-cell { font-size: 15.5px; }
+
+  .pagination { justify-content: space-between; }
+}
+
 @media (max-width: 480px) {
   .detail-grid { grid-template-columns: 1fr; }
-  .table-wrap { max-height: 60vh; }
 }
