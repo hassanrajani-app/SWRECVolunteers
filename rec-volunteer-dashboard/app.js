@@ -36,6 +36,9 @@ const el = {
   detailPosition: document.getElementById("detailPosition"),
   detailCenter: document.getElementById("detailCenter"),
   detailFields: document.getElementById("detailFields"),
+  statTotal: document.getElementById("statTotal"),
+  statAvgAge: document.getElementById("statAvgAge"),
+  statCountryBreakdown: document.getElementById("statCountryBreakdown"),
 };
 
 // ===== Helpers =====
@@ -92,6 +95,47 @@ function withComputed(list) {
   }));
 }
 
+// ===== Stats tiles =====
+// Always computed off the full roster (not the current filters) — these
+// are meant as an at-a-glance overview of everyone, not the filtered view.
+
+function computeStats() {
+  const total = volunteers.length;
+  el.statTotal.textContent = total.toLocaleString();
+
+  const ages = volunteers.map((v) => v.age).filter((a) => a != null);
+  const avgAge = ages.length ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
+  el.statAvgAge.textContent = avgAge != null ? avgAge.toFixed(1) : "—";
+
+  const counts = {};
+  volunteers.forEach((v) => {
+    const c = v.countryOfBirth && v.countryOfBirth.trim() ? v.countryOfBirth.trim() : "Not specified";
+    counts[c] = (counts[c] || 0) + 1;
+  });
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const top = sorted.slice(0, 6);
+  const rest = sorted.slice(6);
+  const maxCount = top.length ? top[0][1] : 0;
+
+  if (top.length === 0) {
+    el.statCountryBreakdown.innerHTML = '<p class="breakdown-empty">No data yet</p>';
+    return;
+  }
+
+  el.statCountryBreakdown.innerHTML =
+    top
+      .map(([name, count]) => {
+        const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
+        return `<div class="breakdown-row">
+          <span class="breakdown-label">${escapeHtml(name)}</span>
+          <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${pct}%"></div></div>
+          <span class="breakdown-count">${count}</span>
+        </div>`;
+      })
+      .join("") +
+    (rest.length ? `<p class="breakdown-more">+${rest.length} more countr${rest.length === 1 ? "y" : "ies"}</p>` : "");
+}
+
 // ===== Load data (stale-while-revalidate) =====
 
 async function loadVolunteers({ forceFresh = false } = {}) {
@@ -111,6 +155,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
       if (cached) {
         volunteers = withComputed(JSON.parse(cached));
         refreshFilterPanels();
+        computeStats();
         render();
         el.stateMessage.classList.add("hidden");
         el.volTable.classList.remove("hidden");
@@ -146,6 +191,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     }
 
     refreshFilterPanels();
+    computeStats();
     if (currentPage === 1 || !paintedFromCache) currentPage = 1;
     render();
     el.stateMessage.classList.add("hidden");
