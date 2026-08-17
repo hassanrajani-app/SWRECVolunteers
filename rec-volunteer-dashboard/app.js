@@ -110,7 +110,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
       const cached = localStorage.getItem(LOCAL_CACHE_KEY);
       if (cached) {
         volunteers = withComputed(JSON.parse(cached));
-        buildAllFilterPanels();
+        refreshFilterPanels();
         render();
         el.stateMessage.classList.add("hidden");
         el.volTable.classList.remove("hidden");
@@ -145,7 +145,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
       /* storage full/unavailable — not fatal */
     }
 
-    buildAllFilterPanels();
+    refreshFilterPanels();
     if (currentPage === 1 || !paintedFromCache) currentPage = 1;
     render();
     el.stateMessage.classList.add("hidden");
@@ -166,6 +166,10 @@ function setupMultiSelect({ btnId, panelId, badgeId, getOptions, selectedSet, on
   const btn = document.getElementById(btnId);
   const panel = document.getElementById(panelId);
   const badge = document.getElementById(badgeId);
+
+  function refreshIfOpen() {
+    if (!panel.classList.contains("hidden")) renderPanel();
+  }
 
   function renderPanel() {
     const options = getOptions();
@@ -227,28 +231,42 @@ function setupMultiSelect({ btnId, panelId, badgeId, getOptions, selectedSet, on
   });
 
   updateBadge();
-  return { renderPanel, updateBadge };
+  return { renderPanel, updateBadge, refreshIfOpen };
 }
 
+// Options data the dropdowns read from. Populated/refreshed by
+// refreshFilterPanels() every time new volunteer data arrives.
+const filterOptionsData = { centers: [], positions: [], grades: [] };
+
 let msControllers = {};
+let filterListenersBound = false;
 
-function buildAllFilterPanels() {
-  const centers = [...new Set(volunteers.map((v) => v.center).filter(Boolean))].sort();
-  const positions = [...new Set(volunteers.map((v) => v.position).filter(Boolean))].sort();
-  const grades = [...new Set(volunteers.flatMap(gradeTags))].sort();
+// Click handlers must be attached exactly once per button — attaching them
+// again on every data refresh causes duplicate handlers on the same click,
+// which makes the dropdown open and immediately re-close. So: bind once,
+// then just refresh the underlying options data on every subsequent call.
+function refreshFilterPanels() {
+  filterOptionsData.centers = [...new Set(volunteers.map((v) => v.center).filter(Boolean))].sort();
+  filterOptionsData.positions = [...new Set(volunteers.map((v) => v.position).filter(Boolean))].sort();
+  filterOptionsData.grades = [...new Set(volunteers.flatMap(gradeTags))].sort();
 
-  msControllers.center = setupMultiSelect({
-    btnId: "centerMSBtn", panelId: "centerMSPanel", badgeId: "centerMSBadge",
-    getOptions: () => centers, selectedSet: filters.centers, onChange: applyFiltersAndRender,
-  });
-  msControllers.position = setupMultiSelect({
-    btnId: "positionMSBtn", panelId: "positionMSPanel", badgeId: "positionMSBadge",
-    getOptions: () => positions, selectedSet: filters.positions, onChange: applyFiltersAndRender,
-  });
-  msControllers.grade = setupMultiSelect({
-    btnId: "gradeMSBtn", panelId: "gradeMSPanel", badgeId: "gradeMSBadge",
-    getOptions: () => grades, selectedSet: filters.grades, onChange: applyFiltersAndRender,
-  });
+  if (!filterListenersBound) {
+    filterListenersBound = true;
+    msControllers.center = setupMultiSelect({
+      btnId: "centerMSBtn", panelId: "centerMSPanel", badgeId: "centerMSBadge",
+      getOptions: () => filterOptionsData.centers, selectedSet: filters.centers, onChange: applyFiltersAndRender,
+    });
+    msControllers.position = setupMultiSelect({
+      btnId: "positionMSBtn", panelId: "positionMSPanel", badgeId: "positionMSBadge",
+      getOptions: () => filterOptionsData.positions, selectedSet: filters.positions, onChange: applyFiltersAndRender,
+    });
+    msControllers.grade = setupMultiSelect({
+      btnId: "gradeMSBtn", panelId: "gradeMSPanel", badgeId: "gradeMSBadge",
+      getOptions: () => filterOptionsData.grades, selectedSet: filters.grades, onChange: applyFiltersAndRender,
+    });
+  } else {
+    Object.values(msControllers).forEach((c) => c.refreshIfOpen());
+  }
 }
 
 document.addEventListener("click", () => {
