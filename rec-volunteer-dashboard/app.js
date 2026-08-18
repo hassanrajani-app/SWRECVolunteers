@@ -39,6 +39,7 @@ const el = {
   statTotal: document.getElementById("statTotal"),
   statAvgAge: document.getElementById("statAvgAge"),
   statCountryBreakdown: document.getElementById("statCountryBreakdown"),
+  statGenderBreakdown: document.getElementById("statGenderBreakdown"),
 };
 
 // ===== Helpers =====
@@ -99,30 +100,21 @@ function withComputed(list) {
 // Always computed off the full roster (not the current filters) — these
 // are meant as an at-a-glance overview of everyone, not the filtered view.
 
-function computeStats() {
-  const total = volunteers.length;
-  el.statTotal.textContent = total.toLocaleString();
-
-  const ages = volunteers.map((v) => v.age).filter((a) => a != null);
-  const avgAge = ages.length ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
-  el.statAvgAge.textContent = avgAge != null ? avgAge.toFixed(1) : "—";
-
-  const counts = {};
-  volunteers.forEach((v) => {
-    const c = v.countryOfBirth && v.countryOfBirth.trim() ? v.countryOfBirth.trim() : "Not specified";
-    counts[c] = (counts[c] || 0) + 1;
-  });
+// Renders a "top N with bars" breakdown into any of the stat-breakdown
+// containers. Shared by Country of Birth and Gender Split so both stay
+// visually and behaviorally consistent.
+function renderBreakdown(container, counts, { maxItems = 6, unitLabel = "" } = {}) {
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const top = sorted.slice(0, 6);
-  const rest = sorted.slice(6);
+  const top = sorted.slice(0, maxItems);
+  const rest = sorted.slice(maxItems);
   const maxCount = top.length ? top[0][1] : 0;
 
   if (top.length === 0) {
-    el.statCountryBreakdown.innerHTML = '<p class="breakdown-empty">No data yet</p>';
+    container.innerHTML = '<p class="breakdown-empty">No data yet</p>';
     return;
   }
 
-  el.statCountryBreakdown.innerHTML =
+  container.innerHTML =
     top
       .map(([name, count]) => {
         const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
@@ -133,7 +125,36 @@ function computeStats() {
         </div>`;
       })
       .join("") +
-    (rest.length ? `<p class="breakdown-more">+${rest.length} more countr${rest.length === 1 ? "y" : "ies"}</p>` : "");
+    (rest.length ? `<p class="breakdown-more">+${rest.length} more${unitLabel ? " " + unitLabel + (rest.length === 1 ? "" : "s") : ""}</p>` : "");
+}
+
+function countBy(list, getValue) {
+  const counts = {};
+  list.forEach((v) => {
+    const raw = getValue(v);
+    const key = raw && String(raw).trim() ? String(raw).trim() : "Not specified";
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+}
+
+function computeStats() {
+  const total = volunteers.length;
+  el.statTotal.textContent = total.toLocaleString();
+
+  const ages = volunteers.map((v) => v.age).filter((a) => a != null);
+  const avgAge = ages.length ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
+  el.statAvgAge.textContent = avgAge != null ? avgAge.toFixed(1) : "—";
+
+  renderBreakdown(el.statCountryBreakdown, countBy(volunteers, (v) => v.countryOfBirth), {
+    maxItems: 6,
+    unitLabel: "country",
+  });
+
+  renderBreakdown(el.statGenderBreakdown, countBy(volunteers, (v) => v.gender), {
+    maxItems: 6,
+    unitLabel: "",
+  });
 }
 
 // ===== Load data (stale-while-revalidate) =====
