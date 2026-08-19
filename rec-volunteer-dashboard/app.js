@@ -223,7 +223,11 @@ async function loadVolunteers({ forceFresh = false } = {}) {
   // server-side in Code.gs), so a shared browser must never paint one
   // coordinator's cached rows for another — a global cache key would risk
   // exactly that for a split second before the live fetch overwrote it.
-  const cacheKey = "sw-re-volunteers-cache-v3-" + user.uid;
+  // v4: bumped when the Code.gs response shape changed from a bare array
+  // to { me, volunteers } — a v3 cache entry would otherwise get
+  // misparsed as an empty roster (cachedData.volunteers is undefined on
+  // a plain array) until overwritten by the next live fetch.
+  const cacheKey = "sw-re-volunteers-cache-v4-" + user.uid;
 
   // 1. Paint instantly from local cache (if any) so the table never sits
   //    on a blank "Loading…" screen for repeat visits.
