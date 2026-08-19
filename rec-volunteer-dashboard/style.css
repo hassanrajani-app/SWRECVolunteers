@@ -71,6 +71,7 @@ body {
   margin: 0 0 14px;
 }
 
+#gateEmail,
 #gatePassword {
   width: 100%;
   padding: 10px 12px;
@@ -79,7 +80,10 @@ body {
   font-size: 14px;
   text-align: center;
   margin-bottom: 12px;
+  box-sizing: border-box;
+  font-family: inherit;
 }
+#gateEmail:focus,
 #gatePassword:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 
 .gate-submit {
