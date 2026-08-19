@@ -114,12 +114,6 @@ body {
   margin-bottom: 22px;
 }
 
-/* Country of Birth has more rows of data than the other tiles, so it gets
-   its own full-width row underneath the three equal-width tiles above. */
-.stat-card-full-row {
-  grid-column: 1 / -1;
-}
-
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
