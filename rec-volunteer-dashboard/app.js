@@ -40,6 +40,8 @@ const el = {
   statAvgAge: document.getElementById("statAvgAge"),
   statCountryBreakdown: document.getElementById("statCountryBreakdown"),
   statGenderBreakdown: document.getElementById("statGenderBreakdown"),
+  statEducationBreakdown: document.getElementById("statEducationBreakdown"),
+  statOccupationBreakdown: document.getElementById("statOccupationBreakdown"),
 };
 
 // ===== Helpers =====
@@ -147,13 +149,23 @@ function computeStats() {
   el.statAvgAge.textContent = avgAge != null ? avgAge.toFixed(1) : "—";
 
   renderBreakdown(el.statCountryBreakdown, countBy(volunteers, (v) => v.countryOfBirth), {
-    maxItems: 6,
+    maxItems: 5,
     unitLabel: "country",
   });
 
   renderBreakdown(el.statGenderBreakdown, countBy(volunteers, (v) => v.gender), {
-    maxItems: 6,
+    maxItems: 5,
     unitLabel: "",
+  });
+
+  renderBreakdown(el.statEducationBreakdown, countBy(volunteers, (v) => v.education), {
+    maxItems: 5,
+    unitLabel: "level",
+  });
+
+  renderBreakdown(el.statOccupationBreakdown, countBy(volunteers, (v) => v.occupation), {
+    maxItems: 5,
+    unitLabel: "type",
   });
 }
 
