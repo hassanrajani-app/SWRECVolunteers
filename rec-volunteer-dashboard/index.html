@@ -8,6 +8,25 @@
 </head>
 <body>
 
+  <!-- Firebase login gate: shown until the user signs in with their
+       Firebase account, then Firebase itself keeps the session persisted
+       across reloads. Nothing under #dashboardRoot is fetched or rendered
+       until auth resolves — see the note in app.js for how this is wired
+       to server-side filtering in Code.gs. -->
+  <div id="passwordGate" class="gate-overlay">
+    <form id="gateForm" class="gate-card">
+      <span class="brand-mark gate-mark">SW</span>
+      <h1>Southwest RE Centers</h1>
+      <p class="gate-subtitle">Sign in to view your volunteer dashboard</p>
+      <input id="gateEmail" type="email" placeholder="Email" autocomplete="username" />
+      <input id="gatePassword" type="password" placeholder="Password" autocomplete="current-password" />
+      <button type="submit" class="export-btn gate-submit">Sign In</button>
+      <p id="gateError" class="gate-error hidden">Couldn't sign in — check your email and password.</p>
+    </form>
+  </div>
+
+  <div id="dashboardRoot" class="hidden">
+
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
@@ -17,9 +36,15 @@
           <p>Volunteer Dashboard</p>
         </div>
       </div>
-      <button id="refreshBtn" class="refresh-btn" title="Reload from Google Sheet">
-        <span class="refresh-icon">⟳</span> Refresh
-      </button>
+      <div class="topbar-actions">
+        <span id="signedInAs" class="signed-in-as"></span>
+        <button id="refreshBtn" class="refresh-btn" title="Reload from Google Sheet">
+          <span class="refresh-icon">⟳</span> Refresh
+        </button>
+        <button id="lockBtn" class="refresh-btn" title="Sign out">
+          Sign Out
+        </button>
+      </div>
     </div>
   </header>
 
@@ -163,7 +188,11 @@
     </div>
   </div>
 
+  </div><!-- /#dashboardRoot -->
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
