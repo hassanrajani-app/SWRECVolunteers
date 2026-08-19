@@ -232,7 +232,9 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        volunteers = withComputed(JSON.parse(cached));
+        const cachedData = JSON.parse(cached);
+        volunteers = withComputed(cachedData.volunteers || []);
+        if (cachedData.me && cachedData.me.name) el.signedInAs.textContent = cachedData.me.name;
         refreshFilterPanels();
         computeStats();
         render();
@@ -267,7 +269,10 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     const data = await res.json();
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
-    volunteers = withComputed(data);
+    volunteers = withComputed(data.volunteers || []);
+    // Prefer the display name from the Coordinators sheet; fall back to
+    // the sign-in email (already showing) if that column's blank.
+    if (data.me && data.me.name) el.signedInAs.textContent = data.me.name;
     try {
       localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (e) {
