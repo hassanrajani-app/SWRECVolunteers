@@ -1,6 +1,21 @@
 // ===== CONFIG =====
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLSM-W-afz-Ncf8m7pTQQG4UMFJ2J9hn17oIgzP2S63TlLRIidDFlehlJi1nrvngba-g/exec";
-const LOCAL_CACHE_KEY = "sw-re-volunteers-cache-v2";
+
+// ===== Firebase config =====
+// Paste the config object from Firebase console → Project settings →
+// General → "Your apps" → SDK setup and configuration. These values
+// (including apiKey) are meant to be public in client apps — they just
+// identify which Firebase project to talk to. The actual security comes
+// from real sign-in plus the server-side check in Code.gs, not from
+// keeping this object secret. See README.md for full setup steps.
+const firebaseConfig = {
+  apiKey: "AIzaSyAJYnW0Q6MwER-tzI-Z2NT8R0NucIc3i1U",
+  authDomain: "swrecvolunteers.firebaseapp.com",
+  projectId: "swrecvolunteers",
+  appId: "1:821676294622:web:a00fefa4a3f782436d1d4f",
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 
 let volunteers = [];
 
@@ -42,6 +57,14 @@ const el = {
   statGenderBreakdown: document.getElementById("statGenderBreakdown"),
   statEducationBreakdown: document.getElementById("statEducationBreakdown"),
   statOccupationBreakdown: document.getElementById("statOccupationBreakdown"),
+  passwordGate: document.getElementById("passwordGate"),
+  dashboardRoot: document.getElementById("dashboardRoot"),
+  gateForm: document.getElementById("gateForm"),
+  gateEmail: document.getElementById("gateEmail"),
+  gatePassword: document.getElementById("gatePassword"),
+  gateError: document.getElementById("gateError"),
+  lockBtn: document.getElementById("lockBtn"),
+  signedInAs: document.getElementById("signedInAs"),
 };
 
 // ===== Helpers =====
@@ -171,6 +194,19 @@ function computeStats() {
 
 // ===== Load data (stale-while-revalidate) =====
 
+// Friendly text for the error codes Code.gs can return once server-side
+// auth is wired up (see README.md's Firebase section for the full list).
+function friendlyAuthError(code) {
+  const messages = {
+    not_provisioned:
+      "Your account isn't set up with dashboard access yet. Ask your Southwest RE Centers admin to add you to the Coordinators sheet.",
+    invalid_token: "Your sign-in session expired — sign out and back in.",
+    missing_token: "Your sign-in session expired — sign out and back in.",
+    verification_failed: "Couldn't verify your sign-in — try refreshing the page.",
+  };
+  return messages[code] || code;
+}
+
 async function loadVolunteers({ forceFresh = false } = {}) {
   if (APPS_SCRIPT_URL.includes("PASTE_YOUR")) {
     el.stateMessage.classList.remove("hidden");
@@ -179,12 +215,22 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     return;
   }
 
+  const user = auth.currentUser;
+  if (!user) return; // shouldn't happen — loadVolunteers only runs once signed in
+
+  // Cache key is scoped to this specific signed-in user's uid. Different
+  // coordinators only ever see their own assigned centers (enforced
+  // server-side in Code.gs), so a shared browser must never paint one
+  // coordinator's cached rows for another — a global cache key would risk
+  // exactly that for a split second before the live fetch overwrote it.
+  const cacheKey = "sw-re-volunteers-cache-v3-" + user.uid;
+
   // 1. Paint instantly from local cache (if any) so the table never sits
   //    on a blank "Loading…" screen for repeat visits.
   let paintedFromCache = false;
   if (!forceFresh) {
     try {
-      const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+      const cached = localStorage.getItem(cacheKey);
       if (cached) {
         volunteers = withComputed(JSON.parse(cached));
         refreshFilterPanels();
@@ -207,18 +253,23 @@ async function loadVolunteers({ forceFresh = false } = {}) {
 
   // 2. Always fetch the live data in the background and re-render when it
   //    arrives (this is what keeps the dashboard correct, not just fast).
+  //    The Firebase ID token goes along as a URL param — Code.gs verifies
+  //    it server-side and filters the response to this coordinator's
+  //    assigned center(s) before it ever leaves Google's servers.
   el.refreshBtn.classList.add("spinning");
   try {
-    const url = forceFresh
-      ? APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + "nocache=1"
-      : APPS_SCRIPT_URL;
+    const idToken = await user.getIdToken();
+    const params = new URLSearchParams({ idToken });
+    if (forceFresh) params.set("nocache", "1");
+    const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
+
     const res = await fetch(url, { cache: "no-store" });
     const data = await res.json();
-    if (data && data.error) throw new Error(data.error);
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
     volunteers = withComputed(data);
     try {
-      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data));
+      localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (e) {
       /* storage full/unavailable — not fatal */
     }
@@ -616,7 +667,57 @@ el.exportBtn.addEventListener("click", exportToExcel);
 // initialize page size selector to match default
 el.pageSizeSelect.value = String(pageSize);
 
-loadVolunteers().then(() => {
-  const hashId = window.location.hash.replace("#", "");
-  if (hashId) openDetail(hashId);
+// ===== Firebase auth wiring =====
+// Real sign-in, not a UI-only gate: nothing under #dashboardRoot fetches
+// data until Firebase confirms a signed-in user, and the data itself is
+// filtered server-side in Code.gs based on who that user is — so even
+// someone opening the browser console and calling loadVolunteers()
+// directly only ever gets back what their account is allowed to see.
+
+function showGateError(message) {
+  el.gateError.textContent = message;
+  el.gateError.classList.remove("hidden");
+  el.gatePassword.value = "";
+  el.gatePassword.focus();
+  el.gateForm.classList.remove("shake");
+  void el.gateForm.offsetWidth; // restart the shake animation on repeat attempts
+  el.gateForm.classList.add("shake");
+}
+
+el.gateForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  el.gateError.classList.add("hidden");
+  const email = el.gateEmail.value.trim();
+  const password = el.gatePassword.value;
+
+  auth.signInWithEmailAndPassword(email, password).catch((err) => {
+    showGateError("Couldn't sign in — check your email and password.");
+  });
+  // On success, onAuthStateChanged below handles showing the dashboard.
+});
+
+if (el.lockBtn) {
+  el.lockBtn.addEventListener("click", () => auth.signOut());
+}
+
+// Firebase persists the session itself (localStorage under the hood), so
+// this fires immediately on page load with the already-signed-in user if
+// there is one — no separate "was this unlocked before" check needed.
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    el.passwordGate.classList.add("hidden");
+    el.dashboardRoot.classList.remove("hidden");
+    el.signedInAs.textContent = user.email || "";
+    el.gatePassword.value = "";
+    loadVolunteers().then(() => {
+      const hashId = window.location.hash.replace("#", "");
+      if (hashId) openDetail(hashId);
+    });
+  } else {
+    volunteers = [];
+    el.dashboardRoot.classList.add("hidden");
+    el.passwordGate.classList.remove("hidden");
+    el.gateError.classList.add("hidden");
+    el.gateEmail.focus();
+  }
 });
