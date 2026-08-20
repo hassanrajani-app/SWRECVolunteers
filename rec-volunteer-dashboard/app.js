@@ -57,6 +57,7 @@ const el = {
   statGenderBreakdown: document.getElementById("statGenderBreakdown"),
   statEducationBreakdown: document.getElementById("statEducationBreakdown"),
   statOccupationBreakdown: document.getElementById("statOccupationBreakdown"),
+  statStudiesUSABreakdown: document.getElementById("statStudiesUSABreakdown"),
   passwordGate: document.getElementById("passwordGate"),
   dashboardRoot: document.getElementById("dashboardRoot"),
   gateForm: document.getElementById("gateForm"),
@@ -144,9 +145,11 @@ function renderBreakdown(container, counts, { maxItems = 6, unitLabel = "" } = {
       .map(([name, count]) => {
         const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
         return `<div class="breakdown-row">
-          <span class="breakdown-label">${escapeHtml(name)}</span>
+          <div class="breakdown-row-top">
+            <span class="breakdown-label">${escapeHtml(name)}</span>
+            <span class="breakdown-count">${count}</span>
+          </div>
           <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${pct}%"></div></div>
-          <span class="breakdown-count">${count}</span>
         </div>`;
       })
       .join("") +
@@ -161,6 +164,18 @@ function countBy(list, getValue) {
     counts[key] = (counts[key] || 0) + 1;
   });
   return counts;
+}
+
+// The "Were your studies completed in the USA?" question's full answer
+// text (e.g. "Partially (some studies in USA, some abroad)") is too long
+// for a tile — collapse it down to just Yes / No / Partially.
+function normalizeStudiesInUSA(value) {
+  const v = (value || "").trim().toLowerCase();
+  if (!v) return "";
+  if (v.startsWith("yes")) return "Yes";
+  if (v.startsWith("no")) return "No";
+  if (v.startsWith("partially")) return "Partially";
+  return value; // unexpected wording — show as-is rather than hide it
 }
 
 function computeStats() {
@@ -189,6 +204,11 @@ function computeStats() {
   renderBreakdown(el.statOccupationBreakdown, countBy(volunteers, (v) => v.occupation), {
     maxItems: 5,
     unitLabel: "type",
+  });
+
+  renderBreakdown(el.statStudiesUSABreakdown, countBy(volunteers, (v) => normalizeStudiesInUSA(v.studiesInUSA)), {
+    maxItems: 5,
+    unitLabel: "",
   });
 }
 
