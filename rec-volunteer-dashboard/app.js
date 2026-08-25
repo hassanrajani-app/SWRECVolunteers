@@ -59,6 +59,7 @@ const el = {
   statOccupationBreakdown: document.getElementById("statOccupationBreakdown"),
   statStudiesUSABreakdown: document.getElementById("statStudiesUSABreakdown"),
   passwordGate: document.getElementById("passwordGate"),
+  hubRoot: document.getElementById("hubRoot"),
   dashboardRoot: document.getElementById("dashboardRoot"),
   gateForm: document.getElementById("gateForm"),
   gateEmail: document.getElementById("gateEmail"),
@@ -66,6 +67,10 @@ const el = {
   gateError: document.getElementById("gateError"),
   lockBtn: document.getElementById("lockBtn"),
   signedInAs: document.getElementById("signedInAs"),
+  hubLockBtn: document.getElementById("hubLockBtn"),
+  hubSignedInAs: document.getElementById("hubSignedInAs"),
+  moduleVolunteerDashboard: document.getElementById("moduleVolunteerDashboard"),
+  backToHubBtn: document.getElementById("backToHubBtn"),
 };
 
 // ===== Helpers =====
@@ -760,6 +765,34 @@ el.gateForm.addEventListener("submit", (e) => {
 if (el.lockBtn) {
   el.lockBtn.addEventListener("click", () => auth.signOut());
 }
+if (el.hubLockBtn) {
+  el.hubLockBtn.addEventListener("click", () => auth.signOut());
+}
+
+// ===== Hub <-> module navigation =====
+// Both screens live under the same signed-in session — switching between
+// them is just a visibility toggle, no re-auth or page reload involved.
+
+function showHub() {
+  el.dashboardRoot.classList.add("hidden");
+  el.hubRoot.classList.remove("hidden");
+}
+
+function enterDashboard() {
+  el.hubRoot.classList.add("hidden");
+  el.dashboardRoot.classList.remove("hidden");
+  loadVolunteers().then(() => {
+    const hashId = window.location.hash.replace("#", "");
+    if (hashId) openDetail(hashId);
+  });
+}
+
+if (el.moduleVolunteerDashboard) {
+  el.moduleVolunteerDashboard.addEventListener("click", enterDashboard);
+}
+if (el.backToHubBtn) {
+  el.backToHubBtn.addEventListener("click", showHub);
+}
 
 // Firebase persists the session itself (localStorage under the hood), so
 // this fires immediately on page load with the already-signed-in user if
@@ -767,16 +800,19 @@ if (el.lockBtn) {
 auth.onAuthStateChanged((user) => {
   if (user) {
     el.passwordGate.classList.add("hidden");
-    el.dashboardRoot.classList.remove("hidden");
     el.signedInAs.textContent = user.email || "";
+    el.hubSignedInAs.textContent = user.email || "";
     el.gatePassword.value = "";
-    loadVolunteers().then(() => {
-      const hashId = window.location.hash.replace("#", "");
-      if (hashId) openDetail(hashId);
-    });
+    showHub();
   } else {
     volunteers = [];
+    // Clear any leftover #volunteerID fragment from a previous session so
+    // it can't linger into the next sign-in and skip the hub.
+    if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname);
+    }
     el.dashboardRoot.classList.add("hidden");
+    el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
     el.gateEmail.focus();
