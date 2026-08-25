@@ -52,7 +52,7 @@ const el = {
   detailCenter: document.getElementById("detailCenter"),
   detailFields: document.getElementById("detailFields"),
   statTotal: document.getElementById("statTotal"),
-  statAvgAge: document.getElementById("statAvgAge"),
+  statAgeBreakdown: document.getElementById("statAgeBreakdown"),
   statCountryBreakdown: document.getElementById("statCountryBreakdown"),
   statGenderBreakdown: document.getElementById("statGenderBreakdown"),
   statEducationBreakdown: document.getElementById("statEducationBreakdown"),
@@ -129,13 +129,24 @@ function withComputed(list) {
 // Renders a "top N with bars" breakdown into any of the stat-breakdown
 // containers. Shared by Country of Birth and Gender Split so both stay
 // visually and behaviorally consistent.
-function renderBreakdown(container, counts, { maxItems = 6, unitLabel = "" } = {}) {
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const top = sorted.slice(0, maxItems);
-  const rest = sorted.slice(maxItems);
-  const maxCount = top.length ? top[0][1] : 0;
+// `order`: for breakdowns with a natural sequence (age brackets) rather
+// than "most common first" (country, occupation, etc.) — pass the exact
+// category order to use instead of sorting by count. Every category in
+// `order` is shown even at a count of 0, so a bracket with nobody in it
+// still reads as "zero" rather than silently vanishing.
+function renderBreakdown(container, counts, { maxItems = 6, unitLabel = "", order = null } = {}) {
+  let top, rest;
+  if (order) {
+    top = order.map((key) => [key, counts[key] || 0]);
+    rest = [];
+  } else {
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    top = sorted.slice(0, maxItems);
+    rest = sorted.slice(maxItems);
+  }
+  const maxCount = top.reduce((m, [, c]) => Math.max(m, c), 0);
 
-  if (top.length === 0) {
+  if (top.length === 0 || maxCount === 0) {
     container.innerHTML = '<p class="breakdown-empty">No data yet</p>';
     return;
   }
@@ -178,13 +189,34 @@ function normalizeStudiesInUSA(value) {
   return value; // unexpected wording — show as-is rather than hide it
 }
 
+// Buckets a computed age into a fixed range for the Age Breakdown tile.
+// 40 itself lands in "36 - 40" (not "40+") so the ranges don't overlap.
+const AGE_BUCKET_ORDER = ["16 - 19", "20 - 25", "26 - 30", "31 - 35", "36 - 40", "40+"];
+function ageBucket(age) {
+  if (age == null) return "Not specified";
+  if (age < 16) return "Under 16";
+  if (age <= 19) return "16 - 19";
+  if (age <= 25) return "20 - 25";
+  if (age <= 30) return "26 - 30";
+  if (age <= 35) return "31 - 35";
+  if (age <= 40) return "36 - 40";
+  return "40+";
+}
+
 function computeStats() {
   const total = volunteers.length;
   el.statTotal.textContent = total.toLocaleString();
 
-  const ages = volunteers.map((v) => v.age).filter((a) => a != null);
-  const avgAge = ages.length ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
-  el.statAvgAge.textContent = avgAge != null ? avgAge.toFixed(1) : "—";
+  // The core 6 brackets always show (even at 0); the two edge-case
+  // buckets only appear if someone actually falls in them, so they don't
+  // clutter the tile in the common case where every volunteer is an
+  // adult with a valid DOB on file.
+  const ageCounts = countBy(volunteers, (v) => ageBucket(v.age));
+  const ageOrder = [];
+  if (ageCounts["Under 16"]) ageOrder.push("Under 16");
+  ageOrder.push(...AGE_BUCKET_ORDER);
+  if (ageCounts["Not specified"]) ageOrder.push("Not specified");
+  renderBreakdown(el.statAgeBreakdown, ageCounts, { order: ageOrder });
 
   renderBreakdown(el.statCountryBreakdown, countBy(volunteers, (v) => v.countryOfBirth), {
     maxItems: 5,
