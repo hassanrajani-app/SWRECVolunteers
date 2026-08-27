@@ -35,6 +35,8 @@ let currentPage = 1;
 
 const el = {
   stateMessage: document.getElementById("stateMessage"),
+  statsToggleBtn: document.getElementById("statsToggleBtn"),
+  statsGrid: document.getElementById("statsGrid"),
   searchInput: document.getElementById("searchInput"),
   countLabel: document.getElementById("countLabel"),
   refreshBtn: document.getElementById("refreshBtn"),
@@ -46,11 +48,14 @@ const el = {
   volTable: document.getElementById("volTable"),
   overlay: document.getElementById("detailOverlay"),
   closeDetail: document.getElementById("closeDetail"),
+  editDetailBtn: document.getElementById("editDetailBtn"),
   detailPhoto: document.getElementById("detailPhoto"),
-  detailName: document.getElementById("detailName"),
-  detailPosition: document.getElementById("detailPosition"),
-  detailCenter: document.getElementById("detailCenter"),
+  detailHeaderText: document.getElementById("detailHeaderText"),
   detailFields: document.getElementById("detailFields"),
+  detailSaveError: document.getElementById("detailSaveError"),
+  detailEditActions: document.getElementById("detailEditActions"),
+  cancelEditBtn: document.getElementById("cancelEditBtn"),
+  saveEditBtn: document.getElementById("saveEditBtn"),
   statTotal: document.getElementById("statTotal"),
   statAgeBreakdown: document.getElementById("statAgeBreakdown"),
   statCountryBreakdown: document.getElementById("statCountryBreakdown"),
@@ -125,6 +130,16 @@ function withComputed(list) {
     ...v,
     age: calculateAge(v.dob),
   }));
+}
+
+// Shared by loadVolunteers (read) and saveDetailEdit (write) so the two
+// paths can never drift apart on what a given user's cache key is.
+// v4: bumped when the Code.gs response shape changed from a bare array
+// to { me, volunteers } — a v3 cache entry would otherwise get
+// misparsed as an empty roster (cachedData.volunteers is undefined on
+// a plain array) until overwritten by the next live fetch.
+function cacheKeyFor(user) {
+  return "sw-re-volunteers-cache-v4-" + user.uid;
 }
 
 // ===== Stats tiles =====
@@ -260,6 +275,11 @@ function friendlyAuthError(code) {
     invalid_token: "Your sign-in session expired — sign out and back in.",
     missing_token: "Your sign-in session expired — sign out and back in.",
     verification_failed: "Couldn't verify your sign-in — try refreshing the page.",
+    missing_id: "Something went wrong preparing that edit — try again.",
+    missing_updates: "Something went wrong preparing that edit — try again.",
+    not_found: "Couldn't find that volunteer — try refreshing the page.",
+    forbidden: "You don't have permission to edit this volunteer.",
+    save_failed: "Couldn't save your changes — try again.",
   };
   return messages[code] || code;
 }
@@ -280,11 +300,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
   // server-side in Code.gs), so a shared browser must never paint one
   // coordinator's cached rows for another — a global cache key would risk
   // exactly that for a split second before the live fetch overwrote it.
-  // v4: bumped when the Code.gs response shape changed from a bare array
-  // to { me, volunteers } — a v3 cache entry would otherwise get
-  // misparsed as an empty roster (cachedData.volunteers is undefined on
-  // a plain array) until overwritten by the next live fetch.
-  const cacheKey = "sw-re-volunteers-cache-v4-" + user.uid;
+  const cacheKey = cacheKeyFor(user);
 
   // 1. Paint instantly from local cache (if any) so the table never sits
   //    on a blank "Loading…" screen for repeat visits.
@@ -603,31 +619,68 @@ function renderPagination(totalPages, totalCount) {
 
 // ===== Detail modal =====
 
+// The editable fields shown in the main grid — everything except the
+// header (name/position/center, edited separately above the grid) and the
+// two read-only, non-editable values (Age is computed from DOB; Submitted
+// is form metadata). Keys must match both the volunteer object shape and
+// Code.gs's EDITABLE_FIELDS whitelist, or a save will silently be dropped
+// server-side for that field.
+const DETAIL_FIELDS = [
+  { key: "contact", label: "Contact" },
+  { key: "email", label: "Email" },
+  { key: "dob", label: "Date of Birth" },
+  { key: "gender", label: "Gender" },
+  { key: "gradeLevel", label: "Grade Level Served" },
+  { key: "jamatkhana", label: "Jamatkhana" },
+  { key: "education", label: "Education Level" },
+  { key: "studiesInUSA", label: "Studies Completed in USA" },
+  { key: "occupation", label: "Occupation" },
+  { key: "countryOfBirth", label: "Country of Birth" },
+  { key: "tshirtSize", label: "T-Shirt Size" },
+  { key: "sevaOutside", label: "Seva Outside RE System", multiline: true },
+  { key: "sevaHistory", label: "Seva History Within RE", multiline: true },
+];
+
+// Shown above the grid, inside the photo/name header — same treatment
+// (an ordinary <input>), just styled larger to match the header's look.
+const HEADER_EDIT_FIELDS = [
+  { key: "fullName", label: "Full Name" },
+  { key: "position", label: "Position" },
+  { key: "center", label: "RE Center" },
+];
+
+const ALL_EDITABLE_KEYS = [...HEADER_EDIT_FIELDS, ...DETAIL_FIELDS].map((f) => f.key);
+
+let currentDetailId = null;
+let detailEditing = false;
+
 function openDetail(id) {
+  currentDetailId = id;
+  detailEditing = false;
   const v = volunteers.find((x) => x.id === id);
   if (!v) return;
 
   el.detailPhoto.src = v.photoUrl || "";
   el.detailPhoto.style.display = v.photoUrl ? "block" : "none";
-  el.detailName.textContent = v.fullName;
-  el.detailPosition.textContent = v.position || "";
-  el.detailCenter.textContent = v.center || "";
+
+  renderDetailView(v);
+  el.overlay.classList.remove("hidden");
+  history.replaceState(null, "", `#${id}`);
+}
+
+function renderDetailView(v) {
+  v = v || volunteers.find((x) => x.id === currentDetailId);
+  if (!v) return;
+
+  el.detailHeaderText.innerHTML = `
+    <h2>${escapeHtml(v.fullName)}</h2>
+    <p class="detail-subtitle">${escapeHtml(v.position || "")}</p>
+    <p class="detail-subtitle">${escapeHtml(v.center || "")}</p>
+  `;
 
   const fields = [
     ["Age", v.age != null ? v.age : ""],
-    ["Contact", v.contact],
-    ["Email", v.email],
-    ["Date of Birth", v.dob],
-    ["Gender", v.gender],
-    ["Grade Level Served", v.gradeLevel],
-    ["Jamatkhana", v.jamatkhana],
-    ["Education Level", v.education],
-    ["Studies Completed in USA", v.studiesInUSA],
-    ["Occupation", v.occupation],
-    ["Country of Birth", v.countryOfBirth],
-    ["T-Shirt Size", v.tshirtSize],
-    ["Seva Outside RE System", v.sevaOutside],
-    ["Seva History Within RE", v.sevaHistory],
+    ...DETAIL_FIELDS.map((f) => [f.label, v[f.key]]),
     ["Submitted", v.submittedAt],
   ];
 
@@ -636,12 +689,91 @@ function openDetail(id) {
     .map(([label, val]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(val)}</dd>`)
     .join("");
 
-  el.overlay.classList.remove("hidden");
-  history.replaceState(null, "", `#${id}`);
+  el.editDetailBtn.classList.remove("hidden");
+  el.detailEditActions.classList.add("hidden");
+  el.detailSaveError.classList.add("hidden");
+}
+
+function renderDetailEdit() {
+  const v = volunteers.find((x) => x.id === currentDetailId);
+  if (!v) return;
+
+  el.detailHeaderText.innerHTML = HEADER_EDIT_FIELDS.map(
+    (f) => `<label class="edit-field"><span>${escapeHtml(f.label)}</span><input id="edit_${f.key}" type="text" value="${escapeAttr(v[f.key] || "")}" /></label>`
+  ).join("");
+
+  el.detailFields.innerHTML = DETAIL_FIELDS.map((f) => {
+    const input = f.multiline
+      ? `<textarea id="edit_${f.key}" rows="3">${escapeHtml(v[f.key] || "")}</textarea>`
+      : `<input id="edit_${f.key}" type="text" value="${escapeAttr(v[f.key] || "")}" />`;
+    return `<label class="edit-field">${escapeHtml(f.label)}${input}</label>`;
+  }).join("");
+
+  el.editDetailBtn.classList.add("hidden");
+  el.detailEditActions.classList.remove("hidden");
+  el.detailSaveError.classList.add("hidden");
+}
+
+async function saveDetailEdit() {
+  const id = currentDetailId;
+  const updates = {};
+  ALL_EDITABLE_KEYS.forEach((key) => {
+    const input = document.getElementById("edit_" + key);
+    if (input) updates[key] = input.value.trim();
+  });
+
+  el.saveEditBtn.disabled = true;
+  el.saveEditBtn.textContent = "Saving…";
+  el.detailSaveError.classList.add("hidden");
+
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You're signed out — sign in again.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      // Deliberately no Content-Type header: setting one (e.g.
+      // application/json) makes the browser send a CORS preflight
+      // (OPTIONS) request first, which Apps Script web apps can't
+      // handle. Omitting it defaults to text/plain — a "simple
+      // request" that skips preflight — while Code.gs still
+      // JSON.parse()s the raw body regardless of the declared type.
+      body: JSON.stringify({ idToken, id, updates }),
+    });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+
+    // Patch local state immediately so the table/filters/stats reflect
+    // the edit without waiting on a full reload, then drop the stale
+    // local cache so a future page load pulls the corrected roster
+    // instead of repainting the old cached values first.
+    const idx = volunteers.findIndex((x) => x.id === id);
+    if (idx > -1) volunteers[idx] = withComputed([data.volunteer])[0];
+    try {
+      localStorage.removeItem(cacheKeyFor(user));
+    } catch (e) {
+      /* ignore */
+    }
+
+    refreshFilterPanels();
+    computeStats();
+    render();
+    detailEditing = false;
+    renderDetailView();
+  } catch (err) {
+    el.detailSaveError.textContent = "Couldn't save: " + err.message;
+    el.detailSaveError.classList.remove("hidden");
+  } finally {
+    el.saveEditBtn.disabled = false;
+    el.saveEditBtn.textContent = "Save Changes";
+  }
 }
 
 function closeDetail() {
   el.overlay.classList.add("hidden");
+  detailEditing = false;
   history.replaceState(null, "", window.location.pathname);
 }
 
@@ -685,6 +817,27 @@ function exportToExcel() {
 
 // ===== Event wiring =====
 
+// Collapsible analysis section — collapsing it lets the table sit higher
+// on the page. Remembered per-browser so it stays how you left it.
+const STATS_COLLAPSED_KEY = "sw-re-stats-collapsed";
+function setStatsCollapsed(collapsed) {
+  el.statsGrid.classList.toggle("hidden", collapsed);
+  el.statsToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  try {
+    localStorage.setItem(STATS_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch (e) {
+    /* ignore */
+  }
+}
+el.statsToggleBtn.addEventListener("click", () => {
+  setStatsCollapsed(!el.statsGrid.classList.contains("hidden"));
+});
+try {
+  setStatsCollapsed(localStorage.getItem(STATS_COLLAPSED_KEY) === "1");
+} catch (e) {
+  /* ignore */
+}
+
 el.searchInput.addEventListener("input", () => {
   filters.search = el.searchInput.value;
   applyFiltersAndRender();
@@ -727,6 +880,16 @@ el.overlay.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDetail();
 });
+
+el.editDetailBtn.addEventListener("click", () => {
+  detailEditing = true;
+  renderDetailEdit();
+});
+el.cancelEditBtn.addEventListener("click", () => {
+  detailEditing = false;
+  renderDetailView();
+});
+el.saveEditBtn.addEventListener("click", saveDetailEdit);
 el.refreshBtn.addEventListener("click", () => loadVolunteers({ forceFresh: true }));
 el.exportBtn.addEventListener("click", exportToExcel);
 
