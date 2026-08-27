@@ -294,6 +294,39 @@ body {
   border-radius: 999px;
 }
 
+/* ===== Stats/analysis toggle ===== */
+.stats-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0 0 12px;
+  margin: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.stats-toggle-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.stats-toggle-icon {
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.stats-toggle:hover .stats-toggle-label,
+.stats-toggle:hover .stats-toggle-icon {
+  color: var(--navy);
+}
+.stats-toggle[aria-expanded="false"] .stats-toggle-icon {
+  transform: rotate(-90deg);
+}
+
 /* ===== Stats tiles ===== */
 .stats-grid {
   display: grid;
@@ -780,6 +813,75 @@ body {
   word-break: break-word;
   white-space: pre-line;
 }
+
+/* ===== Detail edit mode ===== */
+.edit-btn {
+  position: absolute;
+  top: 16px;
+  right: 58px;
+  border: none;
+  background: var(--cream);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.edit-btn svg { width: 16px; height: 16px; }
+.edit-btn:hover { background: var(--border); color: var(--navy-dark); }
+.edit-btn.hidden { display: none; }
+
+.detail-save-error {
+  margin: -6px 0 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #a02f2f;
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.edit-field input,
+.edit-field textarea {
+  font-family: inherit;
+  font-size: 14.5px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text);
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card);
+  width: 100%;
+  box-sizing: border-box;
+}
+.edit-field input:focus,
+.edit-field textarea:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.edit-field textarea { resize: vertical; font-family: inherit; }
+
+#detailHeaderText .edit-field { margin-bottom: 10px; }
+#detailHeaderText .edit-field input { font-size: 15.5px; text-align: center; }
+#detailHeaderText .edit-field:first-child input { font-size: 18px; font-weight: 600; color: var(--navy-dark); }
+
+.detail-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.detail-edit-actions.hidden { display: none; }
 
 /* ===== Responsive: table → stacked cards ===== */
 /* Below this width the 8-column table can't fit without horizontal
