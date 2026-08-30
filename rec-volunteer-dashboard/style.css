@@ -704,6 +704,28 @@ body {
   border-radius: 999px;
 }
 
+/* ===== Status badge ===== */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-active { color: #1f7a4d; background: #e3f5ea; }
+.status-active .status-dot { background: #2fa360; }
+.status-inactive { color: #a02f2f; background: #fdecea; }
+.status-inactive .status-dot { background: #c0392b; }
+
 /* ===== Pagination ===== */
 .pagination {
   display: flex;
@@ -854,7 +876,8 @@ body {
   color: var(--text-muted);
 }
 .edit-field input,
-.edit-field textarea {
+.edit-field textarea,
+.edit-field select {
   font-family: inherit;
   font-size: 14.5px;
   text-transform: none;
@@ -868,8 +891,10 @@ body {
   box-sizing: border-box;
 }
 .edit-field input:focus,
-.edit-field textarea:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.edit-field textarea:focus,
+.edit-field select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 .edit-field textarea { resize: vertical; font-family: inherit; }
+.edit-field select { cursor: pointer; }
 
 #detailHeaderText .edit-field { margin-bottom: 10px; }
 #detailHeaderText .edit-field input { font-size: 15.5px; text-align: center; }
