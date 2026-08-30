@@ -193,6 +193,11 @@
     <section class="toolbar">
       <input id="searchInput" type="text" placeholder="Search by name or email..." />
 
+      <div class="multiselect" id="statusMS">
+        <button type="button" class="ms-btn" id="statusMSBtn">Status<span class="ms-badge hidden" id="statusMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="statusMSPanel"></div>
+      </div>
+
       <div class="multiselect" id="centerMS">
         <button type="button" class="ms-btn" id="centerMSBtn">RE Center<span class="ms-badge hidden" id="centerMSBadge">0</span><span class="chev">▾</span></button>
         <div class="ms-panel hidden" id="centerMSPanel"></div>
@@ -233,6 +238,7 @@
         <thead>
           <tr>
             <th data-key="fullName">Name <span class="sort-ind"></span></th>
+            <th data-key="status">Status <span class="sort-ind"></span></th>
             <th data-key="center">RE Center <span class="sort-ind"></span></th>
             <th data-key="position">Position <span class="sort-ind"></span></th>
             <th data-key="gradeLevel">Grade Level <span class="sort-ind"></span></th>
