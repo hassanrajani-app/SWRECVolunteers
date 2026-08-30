@@ -18,6 +18,13 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
 let volunteers = [];
+// Whether the signed-in coordinator is allowed to edit records — set from
+// the Coordinators sheet's "Edit Access" column (see Code.gs) each time
+// data loads (live or from cache). The pencil button is only ever shown
+// when this is true, but the real enforcement is server-side in doPost —
+// this flag is just what drives the UI, never trusted as security on its
+// own.
+let canEdit = false;
 
 // filter state
 const filters = {
@@ -25,6 +32,7 @@ const filters = {
   centers: new Set(),
   positions: new Set(),
   grades: new Set(),
+  statuses: new Set(),
 };
 
 // sort + pagination state
@@ -117,6 +125,13 @@ function escapeHtml(str) {
   }[c]));
 }
 function escapeAttr(str) { return escapeHtml(str); }
+
+// Small colored dot + label, used both in the table and the detail modal
+// so "who's still active" reads at a glance rather than as plain text.
+function statusBadgeHtml(status) {
+  const isInactive = status === "Inactive";
+  return `<span class="status-badge ${isInactive ? "status-inactive" : "status-active"}"><span class="status-dot"></span>${escapeHtml(status || "Active")}</span>`;
+}
 
 function gradeTags(v) {
   return (v.gradeLevel || "")
@@ -312,6 +327,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
         const cachedData = JSON.parse(cached);
         volunteers = withComputed(cachedData.volunteers || []);
         if (cachedData.me && cachedData.me.name) el.signedInAs.textContent = cachedData.me.name;
+        if (cachedData.me) canEdit = !!cachedData.me.canEdit;
         refreshFilterPanels();
         computeStats();
         render();
@@ -350,6 +366,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     // Prefer the display name from the Coordinators sheet; fall back to
     // the sign-in email (already showing) if that column's blank.
     if (data.me && data.me.name) el.signedInAs.textContent = data.me.name;
+    if (data.me) canEdit = !!data.me.canEdit;
     try {
       localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (e) {
@@ -464,6 +481,10 @@ function refreshFilterPanels() {
 
   if (!filterListenersBound) {
     filterListenersBound = true;
+    msControllers.status = setupMultiSelect({
+      btnId: "statusMSBtn", panelId: "statusMSPanel", badgeId: "statusMSBadge",
+      getOptions: () => ["Active", "Inactive"], selectedSet: filters.statuses, onChange: applyFiltersAndRender,
+    });
     msControllers.center = setupMultiSelect({
       btnId: "centerMSBtn", panelId: "centerMSPanel", badgeId: "centerMSBadge",
       getOptions: () => filterOptionsData.centers, selectedSet: filters.centers, onChange: applyFiltersAndRender,
@@ -490,6 +511,7 @@ document.addEventListener("click", () => {
 function getFiltered() {
   const q = filters.search.trim().toLowerCase();
   return volunteers.filter((v) => {
+    if (filters.statuses.size > 0 && !filters.statuses.has(v.status)) return false;
     if (filters.centers.size > 0 && !filters.centers.has(v.center)) return false;
     if (filters.positions.size > 0 && !filters.positions.has(v.position)) return false;
     if (filters.grades.size > 0) {
@@ -564,6 +586,7 @@ function render() {
       return `
         <tr data-id="${escapeAttr(v.id)}">
           <td data-label="Name"><div class="name-cell">${photo}<span>${escapeHtml(v.fullName)}</span></div></td>
+          <td data-label="Status">${statusBadgeHtml(v.status)}</td>
           <td data-label="RE Center">${escapeHtml(v.center)}</td>
           <td data-label="Position">${v.position ? `<span class="position-pill">${escapeHtml(v.position)}</span>` : ""}</td>
           <td data-label="Grade Level">${escapeHtml(v.gradeLevel)}</td>
@@ -626,6 +649,7 @@ function renderPagination(totalPages, totalCount) {
 // Code.gs's EDITABLE_FIELDS whitelist, or a save will silently be dropped
 // server-side for that field.
 const DETAIL_FIELDS = [
+  { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
   { key: "contact", label: "Contact" },
   { key: "email", label: "Email" },
   { key: "dob", label: "Date of Birth" },
@@ -686,10 +710,13 @@ function renderDetailView(v) {
 
   el.detailFields.innerHTML = fields
     .filter(([, val]) => val !== "" && val != null)
-    .map(([label, val]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(val)}</dd>`)
+    .map(([label, val]) => `<dt>${escapeHtml(label)}</dt><dd>${label === "Status" ? statusBadgeHtml(val) : escapeHtml(val)}</dd>`)
     .join("");
 
-  el.editDetailBtn.classList.remove("hidden");
+  // Only coordinators with Edit Access = YES in the Coordinators sheet
+  // ever see the pencil — this is a convenience for them, not the actual
+  // security boundary, which is enforced server-side in doPost.
+  el.editDetailBtn.classList.toggle("hidden", !canEdit);
   el.detailEditActions.classList.add("hidden");
   el.detailSaveError.classList.add("hidden");
 }
@@ -703,9 +730,17 @@ function renderDetailEdit() {
   ).join("");
 
   el.detailFields.innerHTML = DETAIL_FIELDS.map((f) => {
-    const input = f.multiline
-      ? `<textarea id="edit_${f.key}" rows="3">${escapeHtml(v[f.key] || "")}</textarea>`
-      : `<input id="edit_${f.key}" type="text" value="${escapeAttr(v[f.key] || "")}" />`;
+    let input;
+    if (f.type === "select") {
+      const current = v[f.key] || f.options[0];
+      input = `<select id="edit_${f.key}">${f.options
+        .map((o) => `<option value="${escapeAttr(o)}"${o === current ? " selected" : ""}>${escapeHtml(o)}</option>`)
+        .join("")}</select>`;
+    } else if (f.multiline) {
+      input = `<textarea id="edit_${f.key}" rows="3">${escapeHtml(v[f.key] || "")}</textarea>`;
+    } else {
+      input = `<input id="edit_${f.key}" type="text" value="${escapeAttr(v[f.key] || "")}" />`;
+    }
     return `<label class="edit-field">${escapeHtml(f.label)}${input}</label>`;
   }).join("");
 
@@ -782,6 +817,7 @@ function closeDetail() {
 function exportToExcel() {
   const rows = sortRows(getFiltered()).map((v) => ({
     "Full Name": v.fullName,
+    "Status": v.status,
     "Age": v.age ?? "",
     "Date of Birth": v.dob,
     "Gender": v.gender,
@@ -845,6 +881,7 @@ el.searchInput.addEventListener("input", () => {
 
 el.clearFiltersBtn.addEventListener("click", () => {
   filters.search = "";
+  filters.statuses.clear();
   filters.centers.clear();
   filters.positions.clear();
   filters.grades.clear();
@@ -882,6 +919,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 el.editDetailBtn.addEventListener("click", () => {
+  if (!canEdit) return; // defense in depth — button should already be hidden
   detailEditing = true;
   renderDetailEdit();
 });
