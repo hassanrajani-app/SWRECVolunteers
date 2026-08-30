@@ -78,6 +78,8 @@ const el = {
   gateEmail: document.getElementById("gateEmail"),
   gatePassword: document.getElementById("gatePassword"),
   gateError: document.getElementById("gateError"),
+  gateInfo: document.getElementById("gateInfo"),
+  forgotPasswordBtn: document.getElementById("forgotPasswordBtn"),
   lockBtn: document.getElementById("lockBtn"),
   signedInAs: document.getElementById("signedInAs"),
   hubLockBtn: document.getElementById("hubLockBtn"),
@@ -942,6 +944,7 @@ el.pageSizeSelect.value = String(pageSize);
 // directly only ever gets back what their account is allowed to see.
 
 function showGateError(message) {
+  el.gateInfo.classList.add("hidden");
   el.gateError.textContent = message;
   el.gateError.classList.remove("hidden");
   el.gatePassword.value = "";
@@ -954,6 +957,7 @@ function showGateError(message) {
 el.gateForm.addEventListener("submit", (e) => {
   e.preventDefault();
   el.gateError.classList.add("hidden");
+  el.gateInfo.classList.add("hidden");
   const email = el.gateEmail.value.trim();
   const password = el.gatePassword.value;
 
@@ -961,6 +965,42 @@ el.gateForm.addEventListener("submit", (e) => {
     showGateError("Couldn't sign in — check your email and password.");
   });
   // On success, onAuthStateChanged below handles showing the dashboard.
+});
+
+// Self-service password reset — lets a coordinator recover access on
+// their own after the one-time account setup in the Firebase console
+// (see README.md), instead of ever having to ask for a new password.
+// Firebase sends and hosts the entire reset flow itself; nothing here
+// talks to Code.gs.
+el.forgotPasswordBtn.addEventListener("click", () => {
+  el.gateError.classList.add("hidden");
+  el.gateInfo.classList.add("hidden");
+  const email = el.gateEmail.value.trim();
+
+  if (!email) {
+    el.gateError.textContent = 'Enter your email above, then click "Forgot password?"';
+    el.gateError.classList.remove("hidden");
+    el.gateEmail.focus();
+    return;
+  }
+
+  const showSent = () => {
+    el.gateInfo.textContent = `If an account exists for ${email}, a password reset link has been sent.`;
+    el.gateInfo.classList.remove("hidden");
+  };
+
+  auth.sendPasswordResetEmail(email).then(showSent).catch((err) => {
+    // Deliberately show the same "if an account exists…" message for a
+    // not-found email as for a real send — confirming or denying which
+    // emails have accounts is exactly what this screen shouldn't leak
+    // to anyone probing it.
+    if (err.code === "auth/user-not-found") {
+      showSent();
+    } else {
+      el.gateError.textContent = "Couldn't send a reset email right now — try again in a moment.";
+      el.gateError.classList.remove("hidden");
+    }
+  });
 });
 
 if (el.lockBtn) {
