@@ -1042,12 +1042,6 @@ body {
   margin-left: 2px;
 }
 
-.program-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
 .program-empty {
   color: var(--text-muted);
   font-size: 14.5px;
@@ -1055,37 +1049,52 @@ body {
   margin: 0;
 }
 
-.program-card {
+/* Table look mirrors .vol-table (same sticky navy header, row striping,
+   hover) so the two modules feel like one product. */
+.program-table-wrap {
   background: var(--card);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--blue);
-  border-radius: 14px;
-  padding: 18px 20px;
-  box-shadow: 0 2px 10px rgba(34, 58, 94, 0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-#programsCompletedGrid .program-card { border-left-color: #2fa360; }
-#programsRejectedGrid .program-card { border-left-color: #c0392b; }
-
-.program-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  border-radius: 12px;
+  overflow: auto;
 }
 
-.program-card-title {
-  margin: 0;
-  font-size: 16.5px;
-  font-weight: 700;
-  color: var(--navy-dark);
-  line-height: 1.3;
+.program-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
 }
+
+.program-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--navy);
+  color: white;
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  z-index: 5;
+}
+#programsCompletedTableWrap .program-table thead th { background: #1f7a4d; }
+#programsRejectedTableWrap .program-table thead th { background: #a02f2f; }
+
+.program-table tbody tr { border-bottom: 1px solid var(--border); }
+.program-table tbody tr:nth-child(even) { background: #fafbfd; }
+
+.program-table td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  color: var(--text);
+}
+
+.program-cell-title { font-weight: 600; color: var(--navy-dark); min-width: 160px; }
+
+.program-contact-role { color: var(--text-muted); font-weight: 400; }
 
 .program-category-pill {
-  flex-shrink: 0;
+  display: inline-block;
   font-size: 11.5px;
   font-weight: 600;
   color: var(--navy);
@@ -1095,45 +1104,20 @@ body {
   white-space: nowrap;
 }
 
-.program-card-meta {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.program-card-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 4px;
-}
-
-.program-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-.program-field select {
+.program-table select {
   font-family: inherit;
   font-size: 13.5px;
-  text-transform: none;
-  letter-spacing: normal;
   color: var(--text);
-  padding: 7px 8px;
+  padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--card);
-  width: 100%;
+  min-width: 150px;
   box-sizing: border-box;
   cursor: pointer;
 }
-.program-field select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
-.program-field select:disabled { opacity: 0.55; cursor: wait; }
+.program-table select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.program-table select:disabled { opacity: 0.55; cursor: wait; }
 
 /* Status select background tints, keyed to the exact PROGRAM_STATUSES
    values via statusSlug() in app.js. */
@@ -1144,12 +1128,72 @@ body {
 .program-status-select.program-status-rejected { background: #fdecea; border-color: #f0aca4; color: #a02f2f; }
 .program-status-select.program-status-unset { color: var(--text-muted); }
 
-.program-card-error {
-  margin: 0;
-  font-size: 12.5px;
+.program-row-error {
+  margin: 6px 0 0;
+  font-size: 12px;
   color: #a02f2f;
 }
 
-@media (max-width: 480px) {
-  .program-card-fields { grid-template-columns: 1fr; }
+/* Same "table becomes stacked cards" technique as .vol-table below
+   760px — a 7-column table can't fit a phone screen without cramped
+   horizontal scrolling, so each row becomes a self-contained card. */
+@media (max-width: 760px) {
+  .program-table-wrap {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .program-table,
+  .program-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .program-table thead { display: none; }
+
+  .program-table tr {
+    display: block;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(34, 58, 94, 0.06);
+  }
+  .program-table tr:nth-child(even) { background: var(--card); }
+
+  .program-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    text-align: right;
+    border-bottom: 1px solid var(--cream);
+  }
+  .program-table td:last-child { border-bottom: none; }
+  .program-table td:empty { display: none; }
+
+  .program-table td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  .program-table td[data-label="Event Name"] {
+    padding-bottom: 12px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    justify-content: flex-start;
+    font-size: 16px;
+  }
+  .program-table td[data-label="Event Name"]::before { content: none; }
+
+  .program-table select { min-width: 0; width: 100%; max-width: 190px; }
 }
