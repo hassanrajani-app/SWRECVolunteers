@@ -26,6 +26,14 @@ let volunteers = [];
 // own.
 let canEdit = false;
 
+// ITREB Programs module state — independent of the volunteer roster
+// above. programLeads/programStatuses are the dropdown option lists,
+// sourced from Code.gs (PROGRAM_LEADS/PROGRAM_STATUSES) rather than
+// hardcoded here, so the two never drift out of sync.
+let programs = [];
+let programLeads = [];
+let programStatuses = [];
+
 // filter state
 const filters = {
   search: "",
@@ -86,6 +94,23 @@ const el = {
   hubSignedInAs: document.getElementById("hubSignedInAs"),
   moduleVolunteerDashboard: document.getElementById("moduleVolunteerDashboard"),
   backToHubBtn: document.getElementById("backToHubBtn"),
+  moduleProgramsBtn: document.getElementById("moduleProgramsBtn"),
+  programsRoot: document.getElementById("programsRoot"),
+  backToHubBtnPrograms: document.getElementById("backToHubBtnPrograms"),
+  programsSignedInAs: document.getElementById("programsSignedInAs"),
+  programsRefreshBtn: document.getElementById("programsRefreshBtn"),
+  programsLockBtn: document.getElementById("programsLockBtn"),
+  programsStateMessage: document.getElementById("programsStateMessage"),
+  programsContent: document.getElementById("programsContent"),
+  programsInWorkGrid: document.getElementById("programsInWorkGrid"),
+  programsInWorkCount: document.getElementById("programsInWorkCount"),
+  programsInWorkEmpty: document.getElementById("programsInWorkEmpty"),
+  programsCompletedGrid: document.getElementById("programsCompletedGrid"),
+  programsCompletedCount: document.getElementById("programsCompletedCount"),
+  programsCompletedEmpty: document.getElementById("programsCompletedEmpty"),
+  programsRejectedGrid: document.getElementById("programsRejectedGrid"),
+  programsRejectedCount: document.getElementById("programsRejectedCount"),
+  programsRejectedEmpty: document.getElementById("programsRejectedEmpty"),
 };
 
 // ===== Helpers =====
@@ -853,6 +878,190 @@ function exportToExcel() {
   XLSX.writeFile(wb, `southwest-re-volunteers_${dateStr}.xlsx`);
 }
 
+// ===== ITREB Programs module =====
+// Board-facing view of the "Program" sheet tab — entirely separate data
+// and permission model from the volunteer roster above. Any signed-in
+// user can edit Program Lead / Status here (see Code.gs's doPost); there's
+// no Edit Access gate and no per-center filtering, since this isn't
+// center-scoped data.
+
+// Turns a status string into a CSS-safe suffix ("Feedback Provided" ->
+// "feedback-provided") so each status can have its own select color
+// without a lookup table that has to be kept in sync with PROGRAM_STATUSES.
+function statusSlug(status) {
+  if (!status) return "unset";
+  return status.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// Completed and Rejected are their own sections; everything else (Pending
+// Review, Approved, Feedback Provided, or not yet triaged at all) is
+// "in the works" — matches the three-section layout on the page.
+function programBucket(status) {
+  if (status === "Completed") return "completed";
+  if (status === "Rejected") return "rejected";
+  return "inWork";
+}
+
+// Soonest event first within a section; programs with no parseable date
+// sort to the end rather than the (misleading) top.
+function sortByEventDate(list) {
+  return [...list].sort((a, b) => {
+    const da = parseDob(a.eventDate);
+    const db = parseDob(b.eventDate);
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
+  });
+}
+
+function programCardHtml(p) {
+  const statusVal = p.status || "";
+  const leadVal = p.programLead || "";
+
+  const leadOptions =
+    '<option value="">Unassigned</option>' +
+    programLeads
+      .map((l) => `<option value="${escapeAttr(l)}"${l === leadVal ? " selected" : ""}>${escapeHtml(l)}</option>`)
+      .join("");
+
+  const statusOptions =
+    '<option value="">Not set</option>' +
+    programStatuses
+      .map((s) => `<option value="${escapeAttr(s)}"${s === statusVal ? " selected" : ""}>${escapeHtml(s)}</option>`)
+      .join("");
+
+  const metaParts = [];
+  if (p.contactName) metaParts.push(escapeHtml(p.contactName) + (p.contactRole ? ` · ${escapeHtml(p.contactRole)}` : ""));
+  if (p.eventDate) metaParts.push(escapeHtml(p.eventDate));
+  if (p.academicYear) metaParts.push(escapeHtml(p.academicYear));
+
+  return `
+    <div class="program-card" data-id="${escapeAttr(p.id)}">
+      <div class="program-card-top">
+        <h3 class="program-card-title">${escapeHtml(p.eventName)}</h3>
+        ${p.proposalFor ? `<span class="program-category-pill">${escapeHtml(p.proposalFor)}</span>` : ""}
+      </div>
+      ${metaParts.length ? `<p class="program-card-meta">${metaParts.join(" &nbsp;·&nbsp; ")}</p>` : ""}
+      <div class="program-card-fields">
+        <label class="program-field">
+          <span>Program Lead</span>
+          <select data-field="programLead" data-id="${escapeAttr(p.id)}">${leadOptions}</select>
+        </label>
+        <label class="program-field">
+          <span>Status</span>
+          <select data-field="status" data-id="${escapeAttr(p.id)}" class="program-status-select program-status-${statusSlug(statusVal)}">${statusOptions}</select>
+        </label>
+      </div>
+      <p class="program-card-error hidden"></p>
+    </div>`;
+}
+
+function renderPrograms() {
+  const buckets = { inWork: [], completed: [], rejected: [] };
+  programs.forEach((p) => buckets[programBucket(p.status)].push(p));
+
+  [
+    ["inWork", el.programsInWorkGrid, el.programsInWorkCount, el.programsInWorkEmpty],
+    ["completed", el.programsCompletedGrid, el.programsCompletedCount, el.programsCompletedEmpty],
+    ["rejected", el.programsRejectedGrid, el.programsRejectedCount, el.programsRejectedEmpty],
+  ].forEach(([key, grid, countEl, emptyEl]) => {
+    const list = sortByEventDate(buckets[key]);
+    countEl.textContent = String(list.length);
+    if (list.length === 0) {
+      grid.innerHTML = "";
+      emptyEl.classList.remove("hidden");
+    } else {
+      emptyEl.classList.add("hidden");
+      grid.innerHTML = list.map(programCardHtml).join("");
+    }
+  });
+}
+
+async function loadPrograms({ forceFresh = false } = {}) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  el.programsStateMessage.classList.remove("hidden");
+  el.programsStateMessage.textContent = "Loading programs…";
+  el.programsContent.classList.add("hidden");
+  el.programsRefreshBtn.classList.add("spinning");
+
+  try {
+    const idToken = await user.getIdToken();
+    const params = new URLSearchParams({ idToken, resource: "programs" });
+    if (forceFresh) params.set("nocache", "1");
+    const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
+
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+
+    programs = Array.isArray(data.programs) ? data.programs : [];
+    programLeads = Array.isArray(data.programLeads) ? data.programLeads : [];
+    programStatuses = Array.isArray(data.programStatuses) ? data.programStatuses : [];
+    if (data.me && (data.me.name || data.me.email)) {
+      el.programsSignedInAs.textContent = data.me.name || data.me.email;
+    }
+
+    renderPrograms();
+    el.programsStateMessage.classList.add("hidden");
+    el.programsContent.classList.remove("hidden");
+  } catch (err) {
+    el.programsStateMessage.classList.remove("hidden");
+    el.programsStateMessage.textContent = "Couldn't load programs: " + err.message;
+  } finally {
+    el.programsRefreshBtn.classList.remove("spinning");
+  }
+}
+
+// Auto-saves the instant a dropdown changes — no separate Save button,
+// since these are the only two editable fields and the whole point is
+// quick in-place updates for the board. On success the card's own section
+// may change (e.g. Status -> Completed moves it out of "in the works"),
+// which a full re-render handles naturally. On failure the dropdown reverts
+// to its last known-good value rather than showing a value that was never
+// actually saved.
+async function saveProgramField(id, field, value, selectEl) {
+  const card = selectEl.closest(".program-card");
+  const errorEl = card ? card.querySelector(".program-card-error") : null;
+  const selects = card ? card.querySelectorAll("select") : [selectEl];
+  selects.forEach((s) => (s.disabled = true));
+  if (errorEl) errorEl.classList.add("hidden");
+
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You're signed out — sign in again.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ idToken, resource: "program", id, updates: { [field]: value } }),
+    });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+
+    const idx = programs.findIndex((p) => p.id === id);
+    if (idx > -1) programs[idx] = data.program;
+    renderPrograms();
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = "Couldn't save: " + err.message;
+      errorEl.classList.remove("hidden");
+    }
+    selects.forEach((s) => (s.disabled = false));
+    const p = programs.find((x) => x.id === id);
+    if (p) selectEl.value = p[field] || "";
+  }
+}
+
+el.programsContent.addEventListener("change", (e) => {
+  const sel = e.target;
+  if (!sel.matches("select[data-field]")) return;
+  saveProgramField(sel.dataset.id, sel.dataset.field, sel.value, sel);
+});
+
 // ===== Event wiring =====
 
 // Collapsible analysis section — collapsing it lets the table sit higher
@@ -1016,6 +1225,7 @@ if (el.hubLockBtn) {
 
 function showHub() {
   el.dashboardRoot.classList.add("hidden");
+  el.programsRoot.classList.add("hidden");
   el.hubRoot.classList.remove("hidden");
 }
 
@@ -1028,11 +1238,29 @@ function enterDashboard() {
   });
 }
 
+function enterPrograms() {
+  el.hubRoot.classList.add("hidden");
+  el.programsRoot.classList.remove("hidden");
+  loadPrograms();
+}
+
 if (el.moduleVolunteerDashboard) {
   el.moduleVolunteerDashboard.addEventListener("click", enterDashboard);
 }
 if (el.backToHubBtn) {
   el.backToHubBtn.addEventListener("click", showHub);
+}
+if (el.moduleProgramsBtn) {
+  el.moduleProgramsBtn.addEventListener("click", enterPrograms);
+}
+if (el.backToHubBtnPrograms) {
+  el.backToHubBtnPrograms.addEventListener("click", showHub);
+}
+if (el.programsRefreshBtn) {
+  el.programsRefreshBtn.addEventListener("click", () => loadPrograms({ forceFresh: true }));
+}
+if (el.programsLockBtn) {
+  el.programsLockBtn.addEventListener("click", () => auth.signOut());
 }
 
 // Firebase persists the session itself (localStorage under the hood), so
@@ -1043,16 +1271,19 @@ auth.onAuthStateChanged((user) => {
     el.passwordGate.classList.add("hidden");
     el.signedInAs.textContent = user.email || "";
     el.hubSignedInAs.textContent = user.email || "";
+    el.programsSignedInAs.textContent = user.email || "";
     el.gatePassword.value = "";
     showHub();
   } else {
     volunteers = [];
+    programs = [];
     // Clear any leftover #volunteerID fragment from a previous session so
     // it can't linger into the next sign-in and skip the hub.
     if (window.location.hash) {
       history.replaceState(null, "", window.location.pathname);
     }
     el.dashboardRoot.classList.add("hidden");
+    el.programsRoot.classList.add("hidden");
     el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
