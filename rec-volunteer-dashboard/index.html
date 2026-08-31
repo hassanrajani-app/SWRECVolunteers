@@ -76,14 +76,13 @@
         <p class="module-desc">Opens the National USA REC Safeguarding sign-in in a new tab.</p>
       </a>
 
-      <div class="module-card module-brown module-disabled" aria-disabled="true">
-        <span class="module-badge">Coming soon</span>
+      <button type="button" class="module-card module-brown" id="moduleProgramsBtn">
         <div class="module-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M8.5 12.5h7"/><path d="M8.5 15.5h7"/><path d="M8.5 18.5h4"/></svg>
         </div>
-        <h2 class="module-title">Program Proposal Form</h2>
-        <p class="module-desc">Not available yet.</p>
-      </div>
+        <h2 class="module-title">ITREB Programs</h2>
+        <p class="module-desc">Track program proposals — status and lead at a glance.</p>
+      </button>
     </div>
   </main>
 
@@ -279,6 +278,74 @@
   </div>
 
   </div><!-- /#dashboardRoot -->
+
+  <!-- ITREB Programs module: tracks board program proposals from the
+       "Program" sheet tab. Unlike the Volunteer Dashboard, edits here
+       (Program Lead / Status) are open to any signed-in user — see the
+       note in app.js and Code.gs for why. -->
+  <div id="programsRoot" class="hidden">
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button type="button" id="backToHubBtnPrograms" class="back-btn" title="Back to modules" aria-label="Back to modules">←</button>
+        <span class="brand-mark">SW</span>
+        <div class="brand-text">
+          <h1>ITREB Southwest</h1>
+          <p>Program Proposals</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="programsSignedInAs" class="signed-in-as"></span>
+        <button id="programsRefreshBtn" class="refresh-btn" title="Reload from Google Sheet">
+          <span class="refresh-icon">⟳</span> Refresh
+        </button>
+        <button id="programsLockBtn" class="refresh-btn" title="Sign out">
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section id="programsStateMessage" class="state-message">Loading programs…</section>
+
+    <div id="programsContent" class="hidden">
+      <section class="program-section">
+        <h2 class="program-section-title">
+          <span class="program-section-dot program-section-dot-active"></span>
+          In the Works
+          <span class="program-section-count" id="programsInWorkCount">0</span>
+        </h2>
+        <div class="program-grid" id="programsInWorkGrid"></div>
+        <p class="program-empty hidden" id="programsInWorkEmpty">Nothing in progress right now.</p>
+      </section>
+
+      <section class="program-section">
+        <h2 class="program-section-title">
+          <span class="program-section-dot program-section-dot-completed"></span>
+          Completed
+          <span class="program-section-count" id="programsCompletedCount">0</span>
+        </h2>
+        <div class="program-grid" id="programsCompletedGrid"></div>
+        <p class="program-empty hidden" id="programsCompletedEmpty">No completed programs yet.</p>
+      </section>
+
+      <section class="program-section">
+        <h2 class="program-section-title">
+          <span class="program-section-dot program-section-dot-rejected"></span>
+          Rejected
+          <span class="program-section-count" id="programsRejectedCount">0</span>
+        </h2>
+        <div class="program-grid" id="programsRejectedGrid"></div>
+        <p class="program-empty hidden" id="programsRejectedEmpty">No rejected proposals.</p>
+      </section>
+    </div>
+
+  </main>
+
+  </div><!-- /#programsRoot -->
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
