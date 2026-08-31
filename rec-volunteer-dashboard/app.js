@@ -105,12 +105,15 @@ const el = {
   programsInWorkGrid: document.getElementById("programsInWorkGrid"),
   programsInWorkCount: document.getElementById("programsInWorkCount"),
   programsInWorkEmpty: document.getElementById("programsInWorkEmpty"),
+  programsInWorkTableWrap: document.getElementById("programsInWorkTableWrap"),
   programsCompletedGrid: document.getElementById("programsCompletedGrid"),
   programsCompletedCount: document.getElementById("programsCompletedCount"),
   programsCompletedEmpty: document.getElementById("programsCompletedEmpty"),
+  programsCompletedTableWrap: document.getElementById("programsCompletedTableWrap"),
   programsRejectedGrid: document.getElementById("programsRejectedGrid"),
   programsRejectedCount: document.getElementById("programsRejectedCount"),
   programsRejectedEmpty: document.getElementById("programsRejectedEmpty"),
+  programsRejectedTableWrap: document.getElementById("programsRejectedTableWrap"),
 };
 
 // ===== Helpers =====
@@ -915,7 +918,7 @@ function sortByEventDate(list) {
   });
 }
 
-function programCardHtml(p) {
+function programRowHtml(p) {
   const statusVal = p.status || "";
   const leadVal = p.programLead || "";
 
@@ -931,30 +934,25 @@ function programCardHtml(p) {
       .map((s) => `<option value="${escapeAttr(s)}"${s === statusVal ? " selected" : ""}>${escapeHtml(s)}</option>`)
       .join("");
 
-  const metaParts = [];
-  if (p.contactName) metaParts.push(escapeHtml(p.contactName) + (p.contactRole ? ` · ${escapeHtml(p.contactRole)}` : ""));
-  if (p.eventDate) metaParts.push(escapeHtml(p.eventDate));
-  if (p.academicYear) metaParts.push(escapeHtml(p.academicYear));
+  const contact = p.contactName
+    ? escapeHtml(p.contactName) + (p.contactRole ? ` <span class="program-contact-role">· ${escapeHtml(p.contactRole)}</span>` : "")
+    : "";
 
   return `
-    <div class="program-card" data-id="${escapeAttr(p.id)}">
-      <div class="program-card-top">
-        <h3 class="program-card-title">${escapeHtml(p.eventName)}</h3>
-        ${p.proposalFor ? `<span class="program-category-pill">${escapeHtml(p.proposalFor)}</span>` : ""}
-      </div>
-      ${metaParts.length ? `<p class="program-card-meta">${metaParts.join(" &nbsp;·&nbsp; ")}</p>` : ""}
-      <div class="program-card-fields">
-        <label class="program-field">
-          <span>Program Lead</span>
-          <select data-field="programLead" data-id="${escapeAttr(p.id)}">${leadOptions}</select>
-        </label>
-        <label class="program-field">
-          <span>Status</span>
-          <select data-field="status" data-id="${escapeAttr(p.id)}" class="program-status-select program-status-${statusSlug(statusVal)}">${statusOptions}</select>
-        </label>
-      </div>
-      <p class="program-card-error hidden"></p>
-    </div>`;
+    <tr data-id="${escapeAttr(p.id)}">
+      <td data-label="Event Name" class="program-cell-title">${escapeHtml(p.eventName)}</td>
+      <td data-label="Proposal For">${p.proposalFor ? `<span class="program-category-pill">${escapeHtml(p.proposalFor)}</span>` : ""}</td>
+      <td data-label="Contact">${contact}</td>
+      <td data-label="Event Date">${escapeHtml(p.eventDate)}</td>
+      <td data-label="Academic Year">${escapeHtml(p.academicYear)}</td>
+      <td data-label="Program Lead">
+        <select data-field="programLead" data-id="${escapeAttr(p.id)}">${leadOptions}</select>
+      </td>
+      <td data-label="Status">
+        <select data-field="status" data-id="${escapeAttr(p.id)}" class="program-status-select program-status-${statusSlug(statusVal)}">${statusOptions}</select>
+        <p class="program-row-error hidden"></p>
+      </td>
+    </tr>`;
 }
 
 function renderPrograms() {
@@ -962,18 +960,20 @@ function renderPrograms() {
   programs.forEach((p) => buckets[programBucket(p.status)].push(p));
 
   [
-    ["inWork", el.programsInWorkGrid, el.programsInWorkCount, el.programsInWorkEmpty],
-    ["completed", el.programsCompletedGrid, el.programsCompletedCount, el.programsCompletedEmpty],
-    ["rejected", el.programsRejectedGrid, el.programsRejectedCount, el.programsRejectedEmpty],
-  ].forEach(([key, grid, countEl, emptyEl]) => {
+    ["inWork", el.programsInWorkGrid, el.programsInWorkCount, el.programsInWorkEmpty, el.programsInWorkTableWrap],
+    ["completed", el.programsCompletedGrid, el.programsCompletedCount, el.programsCompletedEmpty, el.programsCompletedTableWrap],
+    ["rejected", el.programsRejectedGrid, el.programsRejectedCount, el.programsRejectedEmpty, el.programsRejectedTableWrap],
+  ].forEach(([key, tbody, countEl, emptyEl, wrapEl]) => {
     const list = sortByEventDate(buckets[key]);
     countEl.textContent = String(list.length);
     if (list.length === 0) {
-      grid.innerHTML = "";
+      tbody.innerHTML = "";
+      wrapEl.classList.add("hidden");
       emptyEl.classList.remove("hidden");
     } else {
       emptyEl.classList.add("hidden");
-      grid.innerHTML = list.map(programCardHtml).join("");
+      wrapEl.classList.remove("hidden");
+      tbody.innerHTML = list.map(programRowHtml).join("");
     }
   });
 }
@@ -1023,9 +1023,9 @@ async function loadPrograms({ forceFresh = false } = {}) {
 // to its last known-good value rather than showing a value that was never
 // actually saved.
 async function saveProgramField(id, field, value, selectEl) {
-  const card = selectEl.closest(".program-card");
-  const errorEl = card ? card.querySelector(".program-card-error") : null;
-  const selects = card ? card.querySelectorAll("select") : [selectEl];
+  const row = selectEl.closest("tr");
+  const errorEl = row ? row.querySelector(".program-row-error") : null;
+  const selects = row ? row.querySelectorAll("select") : [selectEl];
   selects.forEach((s) => (s.disabled = true));
   if (errorEl) errorEl.classList.add("hidden");
 
