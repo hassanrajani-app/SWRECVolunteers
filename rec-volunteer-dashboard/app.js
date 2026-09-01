@@ -41,6 +41,7 @@ const filters = {
   positions: new Set(),
   grades: new Set(),
   statuses: new Set(),
+  servingPrograms: new Set(),
 };
 
 // sort + pagination state
@@ -495,7 +496,7 @@ function setupMultiSelect({ btnId, panelId, badgeId, getOptions, selectedSet, on
 
 // Options data the dropdowns read from. Populated/refreshed by
 // refreshFilterPanels() every time new volunteer data arrives.
-const filterOptionsData = { centers: [], positions: [], grades: [] };
+const filterOptionsData = { centers: [], positions: [], grades: [], servingPrograms: [] };
 
 let msControllers = {};
 let filterListenersBound = false;
@@ -508,12 +509,21 @@ function refreshFilterPanels() {
   filterOptionsData.centers = [...new Set(volunteers.map((v) => v.center).filter(Boolean))].sort();
   filterOptionsData.positions = [...new Set(volunteers.map((v) => v.position).filter(Boolean))].sort();
   filterOptionsData.grades = [...new Set(volunteers.flatMap(gradeTags))].sort();
+  // Not a fixed two-value list like Status — pulled from whatever's
+  // actually in the data, so it self-heals regardless of the exact
+  // wording Tally submits for this answer (and shows nothing extra for
+  // older submissions from before this question existed).
+  filterOptionsData.servingPrograms = [...new Set(volunteers.map((v) => v.servingProgram).filter(Boolean))].sort();
 
   if (!filterListenersBound) {
     filterListenersBound = true;
     msControllers.status = setupMultiSelect({
       btnId: "statusMSBtn", panelId: "statusMSPanel", badgeId: "statusMSBadge",
       getOptions: () => ["Active", "Inactive"], selectedSet: filters.statuses, onChange: applyFiltersAndRender,
+    });
+    msControllers.servingProgram = setupMultiSelect({
+      btnId: "servingProgramMSBtn", panelId: "servingProgramMSPanel", badgeId: "servingProgramMSBadge",
+      getOptions: () => filterOptionsData.servingPrograms, selectedSet: filters.servingPrograms, onChange: applyFiltersAndRender,
     });
     msControllers.center = setupMultiSelect({
       btnId: "centerMSBtn", panelId: "centerMSPanel", badgeId: "centerMSBadge",
@@ -542,6 +552,7 @@ function getFiltered() {
   const q = filters.search.trim().toLowerCase();
   return volunteers.filter((v) => {
     if (filters.statuses.size > 0 && !filters.statuses.has(v.status)) return false;
+    if (filters.servingPrograms.size > 0 && !filters.servingPrograms.has(v.servingProgram)) return false;
     if (filters.centers.size > 0 && !filters.centers.has(v.center)) return false;
     if (filters.positions.size > 0 && !filters.positions.has(v.position)) return false;
     if (filters.grades.size > 0) {
@@ -617,6 +628,7 @@ function render() {
         <tr data-id="${escapeAttr(v.id)}">
           <td data-label="Name"><div class="name-cell">${photo}<span>${escapeHtml(v.fullName)}</span></div></td>
           <td data-label="Status">${statusBadgeHtml(v.status)}</td>
+          <td data-label="Program">${v.servingProgram ? `<span class="program-category-pill">${escapeHtml(v.servingProgram)}</span>` : ""}</td>
           <td data-label="RE Center">${escapeHtml(v.center)}</td>
           <td data-label="Position">${v.position ? `<span class="position-pill">${escapeHtml(v.position)}</span>` : ""}</td>
           <td data-label="Grade Level">${escapeHtml(v.gradeLevel)}</td>
@@ -680,6 +692,12 @@ function renderPagination(totalPages, totalCount) {
 // server-side for that field.
 const DETAIL_FIELDS = [
   { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+  // Options are pulled live (a function, not a fixed array) from whatever
+  // values actually exist in the roster — see filterOptionsData in the
+  // filtering section — so this never needs updating if the exact wording
+  // of the Tally answer changes. allowBlank because older submissions
+  // (from before this question existed) legitimately have nothing here.
+  { key: "servingProgram", label: "Program", type: "select", options: () => filterOptionsData.servingPrograms, allowBlank: true, blankLabel: "Not set" },
   { key: "contact", label: "Contact" },
   { key: "email", label: "Email" },
   { key: "dob", label: "Date of Birth" },
@@ -740,7 +758,13 @@ function renderDetailView(v) {
 
   el.detailFields.innerHTML = fields
     .filter(([, val]) => val !== "" && val != null)
-    .map(([label, val]) => `<dt>${escapeHtml(label)}</dt><dd>${label === "Status" ? statusBadgeHtml(val) : escapeHtml(val)}</dd>`)
+    .map(([label, val]) => {
+      let dd;
+      if (label === "Status") dd = statusBadgeHtml(val);
+      else if (label === "Program") dd = `<span class="program-category-pill">${escapeHtml(val)}</span>`;
+      else dd = escapeHtml(val);
+      return `<dt>${escapeHtml(label)}</dt><dd>${dd}</dd>`;
+    })
     .join("");
 
   // Only coordinators with Edit Access = YES in the Coordinators sheet
@@ -762,9 +786,22 @@ function renderDetailEdit() {
   el.detailFields.innerHTML = DETAIL_FIELDS.map((f) => {
     let input;
     if (f.type === "select") {
-      const current = v[f.key] || f.options[0];
-      input = `<select id="edit_${f.key}">${f.options
-        .map((o) => `<option value="${escapeAttr(o)}"${o === current ? " selected" : ""}>${escapeHtml(o)}</option>`)
+      // options can be a fixed array (Status) or a function returning the
+      // live set of values seen in the current roster (Program) — either
+      // way we end up with a plain array here.
+      const opts = typeof f.options === "function" ? f.options() : f.options;
+      const current = v[f.key] || "";
+      // Never hide the volunteer's own current value even if it's since
+      // fallen out of the live options list for some reason.
+      const optionList = current && opts.indexOf(current) === -1 ? [current, ...opts] : opts;
+      const blankOption = f.allowBlank
+        ? `<option value=""${current ? "" : " selected"}>${escapeHtml(f.blankLabel || "Not set")}</option>`
+        : "";
+      // Fields without allowBlank keep the original behavior: default the
+      // selection to the first option rather than leaving nothing chosen.
+      const selectedValue = !f.allowBlank && !current ? optionList[0] : current;
+      input = `<select id="edit_${f.key}">${blankOption}${optionList
+        .map((o) => `<option value="${escapeAttr(o)}"${o === selectedValue ? " selected" : ""}>${escapeHtml(o)}</option>`)
         .join("")}</select>`;
     } else if (f.multiline) {
       input = `<textarea id="edit_${f.key}" rows="3">${escapeHtml(v[f.key] || "")}</textarea>`;
@@ -848,6 +885,7 @@ function exportToExcel() {
   const rows = sortRows(getFiltered()).map((v) => ({
     "Full Name": v.fullName,
     "Status": v.status,
+    "Program": v.servingProgram,
     "Age": v.age ?? "",
     "Date of Birth": v.dob,
     "Gender": v.gender,
@@ -1093,6 +1131,7 @@ el.searchInput.addEventListener("input", () => {
 el.clearFiltersBtn.addEventListener("click", () => {
   filters.search = "";
   filters.statuses.clear();
+  filters.servingPrograms.clear();
   filters.centers.clear();
   filters.positions.clear();
   filters.grades.clear();
