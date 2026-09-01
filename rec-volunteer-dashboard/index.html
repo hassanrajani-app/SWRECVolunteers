@@ -81,7 +81,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M8.5 12.5h7"/><path d="M8.5 15.5h7"/><path d="M8.5 18.5h4"/></svg>
         </div>
         <h2 class="module-title">ITREB Programs</h2>
-        <p class="module-desc">Track and update ITREB programming</p>
+        <p class="module-desc">Track program proposals — status and lead at a glance.</p>
       </button>
     </div>
   </main>
@@ -199,6 +199,11 @@
         <div class="ms-panel hidden" id="statusMSPanel"></div>
       </div>
 
+      <div class="multiselect" id="servingProgramMS">
+        <button type="button" class="ms-btn" id="servingProgramMSBtn">Program<span class="ms-badge hidden" id="servingProgramMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="servingProgramMSPanel"></div>
+      </div>
+
       <div class="multiselect" id="centerMS">
         <button type="button" class="ms-btn" id="centerMSBtn">RE Center<span class="ms-badge hidden" id="centerMSBadge">0</span><span class="chev">▾</span></button>
         <div class="ms-panel hidden" id="centerMSPanel"></div>
@@ -240,6 +245,7 @@
           <tr>
             <th data-key="fullName">Name <span class="sort-ind"></span></th>
             <th data-key="status">Status <span class="sort-ind"></span></th>
+            <th data-key="servingProgram">Program <span class="sort-ind"></span></th>
             <th data-key="center">RE Center <span class="sort-ind"></span></th>
             <th data-key="position">Position <span class="sort-ind"></span></th>
             <th data-key="gradeLevel">Grade Level <span class="sort-ind"></span></th>
