@@ -628,7 +628,6 @@ function render() {
         <tr data-id="${escapeAttr(v.id)}">
           <td data-label="Name"><div class="name-cell">${photo}<span>${escapeHtml(v.fullName)}</span></div></td>
           <td data-label="Status">${statusBadgeHtml(v.status)}</td>
-          <td data-label="Program">${v.servingProgram ? `<span class="program-category-pill">${escapeHtml(v.servingProgram)}</span>` : ""}</td>
           <td data-label="RE Center">${escapeHtml(v.center)}</td>
           <td data-label="Position">${v.position ? `<span class="position-pill">${escapeHtml(v.position)}</span>` : ""}</td>
           <td data-label="Grade Level">${escapeHtml(v.gradeLevel)}</td>
