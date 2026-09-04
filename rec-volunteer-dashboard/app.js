@@ -1151,7 +1151,6 @@ function attendanceCardHtml(row) {
     <div class="attendance-card attendance-card-${level}">
       <p class="attendance-card-center">${escapeHtml(row.center)}</p>
       <p class="attendance-card-pct">${pctText}</p>
-      <p class="attendance-card-detail">${row.attended.toLocaleString()} / ${row.total.toLocaleString()} attended · ${row.sessions} session${row.sessions === 1 ? "" : "s"}</p>
     </div>`;
 }
 
