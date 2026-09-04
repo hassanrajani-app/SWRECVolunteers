@@ -1197,3 +1197,130 @@ body {
 
   .program-table select { min-width: 0; width: 100%; max-width: 190px; }
 }
+
+/* ===== Attendance Metrics module ===== */
+
+.attendance-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.attendance-as-of {
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.attendance-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.attendance-legend-item { display: flex; align-items: center; gap: 6px; }
+
+.attendance-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.attendance-dot-good { background: #2fa360; }
+.attendance-dot-watch { background: #d99a1f; }
+.attendance-dot-low { background: #c0392b; }
+
+.attendance-category { margin-bottom: 36px; }
+.attendance-category:last-child { margin-bottom: 0; }
+
+.attendance-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.attendance-category-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* Prominent overall-for-this-band figure, sitting beside the section
+   title — answers the "give me overall attendance percentages" part of
+   the ask directly, before the per-center breakdown below it. */
+.attendance-overall {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.attendance-overall-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy-dark);
+}
+.attendance-overall-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.attendance-overall-good .attendance-overall-value { color: #1f7a4d; }
+.attendance-overall-watch .attendance-overall-value { color: #8a5b12; }
+.attendance-overall-low .attendance-overall-value { color: #a02f2f; }
+
+.attendance-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.attendance-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.attendance-card-good { border-left-color: #2fa360; }
+.attendance-card-watch { border-left-color: #d99a1f; }
+.attendance-card-low { border-left-color: #c0392b; }
+
+.attendance-card-center {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--navy-dark);
+  margin: 0 0 6px;
+}
+
+.attendance-card-pct {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.attendance-card-good .attendance-card-pct { color: #1f7a4d; }
+.attendance-card-watch .attendance-card-pct { color: #8a5b12; }
+.attendance-card-low .attendance-card-pct { color: #a02f2f; }
+
+.attendance-card-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .attendance-card-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .attendance-category-header { flex-direction: column; align-items: flex-start; }
+}
