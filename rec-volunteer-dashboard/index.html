@@ -84,6 +84,14 @@
         <h2 class="module-title">ITREB Programs</h2>
         <p class="module-desc">Track program proposals — status and lead at a glance.</p>
       </button>
+
+      <button type="button" class="module-card module-navy" id="moduleAttendanceBtn">
+        <div class="module-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="m8 14.5 2.2 2.2L15.5 12" /></svg>
+        </div>
+        <h2 class="module-title">Attendance Metrics</h2>
+        <p class="module-desc">Attendance percentages by center — Pre-Primary, Primary, and Secondary.</p>
+      </button>
     </div>
   </main>
 
@@ -397,6 +405,102 @@
   </main>
 
   </div><!-- /#programsRoot -->
+
+  <!-- Attendance Metrics module: reads the "Attendance" sheet tab (pasted
+       in by hand, grown by appending rows over the year) and shows
+       cumulative attendance % — (Present + Tardy) / Total — grouped into
+       Pre-Primary, Primary, and Secondary bands, with one card per RE
+       Center inside each band. Read-only, open to any signed-in user. -->
+  <div id="attendanceRoot" class="hidden">
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button type="button" id="backToHubBtnAttendance" class="back-btn" title="Back to modules" aria-label="Back to modules">←</button>
+        <span class="brand-mark">SW</span>
+        <div class="brand-text">
+          <h1>ITREB Southwest</h1>
+          <p>Attendance Metrics</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="attendanceSignedInAs" class="signed-in-as"></span>
+        <button id="attendanceRefreshBtn" class="refresh-btn" title="Reload from Google Sheet">
+          <span class="refresh-icon">⟳</span> Refresh
+        </button>
+        <button id="attendanceLockBtn" class="refresh-btn" title="Sign out">
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section id="attendanceStateMessage" class="state-message">Loading attendance…</section>
+
+    <div id="attendanceContent" class="hidden">
+      <div class="attendance-meta-row">
+        <span id="attendanceAsOf" class="attendance-as-of"></span>
+        <div class="attendance-legend">
+          <span class="attendance-legend-item"><span class="attendance-dot attendance-dot-good"></span>90%+</span>
+          <span class="attendance-legend-item"><span class="attendance-dot attendance-dot-watch"></span>75–89%</span>
+          <span class="attendance-legend-item"><span class="attendance-dot attendance-dot-low"></span>Below 75%</span>
+        </div>
+      </div>
+
+      <section class="attendance-category" id="attendanceCategoryPrePrimary">
+        <div class="attendance-category-header">
+          <h2 class="program-section-title">
+            <span class="program-section-dot program-section-dot-active"></span>
+            Pre-Primary
+            <span class="attendance-category-sub">Pre-K &amp; Kindergarten</span>
+          </h2>
+          <div class="attendance-overall" id="attendanceOverallPrePrimary">
+            <span class="attendance-overall-value">—</span>
+            <span class="attendance-overall-label">Overall</span>
+          </div>
+        </div>
+        <div class="attendance-card-grid" id="attendanceGridPrePrimary"></div>
+        <p class="program-empty hidden" id="attendanceEmptyPrePrimary">No Pre-Primary attendance data yet.</p>
+      </section>
+
+      <section class="attendance-category" id="attendanceCategoryPrimary">
+        <div class="attendance-category-header">
+          <h2 class="program-section-title">
+            <span class="program-section-dot program-section-dot-completed"></span>
+            Primary
+            <span class="attendance-category-sub">Grades 1–6</span>
+          </h2>
+          <div class="attendance-overall" id="attendanceOverallPrimary">
+            <span class="attendance-overall-value">—</span>
+            <span class="attendance-overall-label">Overall</span>
+          </div>
+        </div>
+        <div class="attendance-card-grid" id="attendanceGridPrimary"></div>
+        <p class="program-empty hidden" id="attendanceEmptyPrimary">No Primary attendance data yet.</p>
+      </section>
+
+      <section class="attendance-category" id="attendanceCategorySecondary">
+        <div class="attendance-category-header">
+          <h2 class="program-section-title">
+            <span class="program-section-dot program-section-dot-rejected"></span>
+            Secondary
+            <span class="attendance-category-sub">Grades 7–12</span>
+          </h2>
+          <div class="attendance-overall" id="attendanceOverallSecondary">
+            <span class="attendance-overall-value">—</span>
+            <span class="attendance-overall-label">Overall</span>
+          </div>
+        </div>
+        <div class="attendance-card-grid" id="attendanceGridSecondary"></div>
+        <p class="program-empty hidden" id="attendanceEmptySecondary">No Secondary attendance data yet.</p>
+      </section>
+    </div>
+
+  </main>
+
+  </div><!-- /#attendanceRoot -->
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
