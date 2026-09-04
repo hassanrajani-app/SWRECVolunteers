@@ -34,6 +34,17 @@ let programs = [];
 let programLeads = [];
 let programStatuses = [];
 
+// Attendance Metrics module state — one row per Category + RE Center,
+// already aggregated server-side in Code.gs (cumulative across every date
+// recorded so far). Read-only: nothing here is ever written back.
+let attendance = [];
+let attendanceAsOf = "";
+const ATTENDANCE_CATEGORIES = [
+  { key: "Pre-Primary", grid: "attendanceGridPrePrimary", empty: "attendanceEmptyPrePrimary", overall: "attendanceOverallPrePrimary" },
+  { key: "Primary", grid: "attendanceGridPrimary", empty: "attendanceEmptyPrimary", overall: "attendanceOverallPrimary" },
+  { key: "Secondary", grid: "attendanceGridSecondary", empty: "attendanceEmptySecondary", overall: "attendanceOverallSecondary" },
+];
+
 // filter state
 const filters = {
   search: "",
@@ -115,6 +126,24 @@ const el = {
   programsRejectedCount: document.getElementById("programsRejectedCount"),
   programsRejectedEmpty: document.getElementById("programsRejectedEmpty"),
   programsRejectedTableWrap: document.getElementById("programsRejectedTableWrap"),
+  moduleAttendanceBtn: document.getElementById("moduleAttendanceBtn"),
+  attendanceRoot: document.getElementById("attendanceRoot"),
+  backToHubBtnAttendance: document.getElementById("backToHubBtnAttendance"),
+  attendanceSignedInAs: document.getElementById("attendanceSignedInAs"),
+  attendanceRefreshBtn: document.getElementById("attendanceRefreshBtn"),
+  attendanceLockBtn: document.getElementById("attendanceLockBtn"),
+  attendanceStateMessage: document.getElementById("attendanceStateMessage"),
+  attendanceContent: document.getElementById("attendanceContent"),
+  attendanceAsOf: document.getElementById("attendanceAsOf"),
+  attendanceGridPrePrimary: document.getElementById("attendanceGridPrePrimary"),
+  attendanceGridPrimary: document.getElementById("attendanceGridPrimary"),
+  attendanceGridSecondary: document.getElementById("attendanceGridSecondary"),
+  attendanceEmptyPrePrimary: document.getElementById("attendanceEmptyPrePrimary"),
+  attendanceEmptyPrimary: document.getElementById("attendanceEmptyPrimary"),
+  attendanceEmptySecondary: document.getElementById("attendanceEmptySecondary"),
+  attendanceOverallPrePrimary: document.getElementById("attendanceOverallPrePrimary"),
+  attendanceOverallPrimary: document.getElementById("attendanceOverallPrimary"),
+  attendanceOverallSecondary: document.getElementById("attendanceOverallSecondary"),
 };
 
 // ===== Helpers =====
@@ -1099,6 +1128,100 @@ el.programsContent.addEventListener("change", (e) => {
   saveProgramField(sel.dataset.id, sel.dataset.field, sel.value, sel);
 });
 
+// ===== Attendance Metrics module =====
+// Read-only board view of the "Attendance" sheet tab — cumulative
+// (Present + Tardy) / Total, aggregated server-side in Code.gs into one
+// row per Category + RE Center. Any signed-in user can view it; nothing
+// here writes back to the sheet.
+
+// Green/amber/red thresholds for the percentage — not specified by the
+// board, chosen as reasonable defaults. Easy to adjust in one place if a
+// different cutoff is wanted later.
+function attendanceLevel(pct) {
+  if (pct == null) return "unknown";
+  if (pct >= 90) return "good";
+  if (pct >= 75) return "watch";
+  return "low";
+}
+
+function attendanceCardHtml(row) {
+  const level = attendanceLevel(row.percent);
+  const pctText = row.percent != null ? row.percent.toFixed(1) + "%" : "—";
+  return `
+    <div class="attendance-card attendance-card-${level}">
+      <p class="attendance-card-center">${escapeHtml(row.center)}</p>
+      <p class="attendance-card-pct">${pctText}</p>
+      <p class="attendance-card-detail">${row.attended.toLocaleString()} / ${row.total.toLocaleString()} attended · ${row.sessions} session${row.sessions === 1 ? "" : "s"}</p>
+    </div>`;
+}
+
+function renderAttendance() {
+  ATTENDANCE_CATEGORIES.forEach(({ key, grid, empty, overall }) => {
+    const rows = attendance.filter((r) => r.category === key);
+    // Lowest attendance first — surfaces the centers that most need
+    // attention right at the top, rather than an alphabetical list the
+    // board would have to scan for problem spots.
+    rows.sort((a, b) => (a.percent ?? -1) - (b.percent ?? -1));
+
+    const gridEl = el[grid];
+    const emptyEl = el[empty];
+    const overallEl = el[overall];
+
+    const totals = rows.reduce((acc, r) => ({ total: acc.total + r.total, attended: acc.attended + r.attended }), { total: 0, attended: 0 });
+    const overallPct = totals.total > 0 ? Math.round((totals.attended / totals.total) * 1000) / 10 : null;
+    const overallLevel = attendanceLevel(overallPct);
+    overallEl.querySelector(".attendance-overall-value").textContent = overallPct != null ? overallPct.toFixed(1) + "%" : "—";
+    overallEl.className = `attendance-overall attendance-overall-${overallLevel}`;
+    overallEl.querySelector(".attendance-overall-label").textContent = "Overall";
+
+    if (rows.length === 0) {
+      gridEl.innerHTML = "";
+      emptyEl.classList.remove("hidden");
+    } else {
+      emptyEl.classList.add("hidden");
+      gridEl.innerHTML = rows.map(attendanceCardHtml).join("");
+    }
+  });
+
+  el.attendanceAsOf.textContent = attendanceAsOf ? `Data through ${attendanceAsOf}` : "";
+}
+
+async function loadAttendance({ forceFresh = false } = {}) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  el.attendanceStateMessage.classList.remove("hidden");
+  el.attendanceStateMessage.textContent = "Loading attendance…";
+  el.attendanceContent.classList.add("hidden");
+  el.attendanceRefreshBtn.classList.add("spinning");
+
+  try {
+    const idToken = await user.getIdToken();
+    const params = new URLSearchParams({ idToken, resource: "attendance" });
+    if (forceFresh) params.set("nocache", "1");
+    const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
+
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+
+    attendance = Array.isArray(data.attendance) ? data.attendance : [];
+    attendanceAsOf = data.attendanceAsOf || "";
+    if (data.me && (data.me.name || data.me.email)) {
+      el.attendanceSignedInAs.textContent = data.me.name || data.me.email;
+    }
+
+    renderAttendance();
+    el.attendanceStateMessage.classList.add("hidden");
+    el.attendanceContent.classList.remove("hidden");
+  } catch (err) {
+    el.attendanceStateMessage.classList.remove("hidden");
+    el.attendanceStateMessage.textContent = "Couldn't load attendance: " + err.message;
+  } finally {
+    el.attendanceRefreshBtn.classList.remove("spinning");
+  }
+}
+
 // ===== Event wiring =====
 
 // Collapsible analysis section — collapsing it lets the table sit higher
@@ -1264,6 +1387,7 @@ if (el.hubLockBtn) {
 function showHub() {
   el.dashboardRoot.classList.add("hidden");
   el.programsRoot.classList.add("hidden");
+  el.attendanceRoot.classList.add("hidden");
   el.hubRoot.classList.remove("hidden");
 }
 
@@ -1280,6 +1404,12 @@ function enterPrograms() {
   el.hubRoot.classList.add("hidden");
   el.programsRoot.classList.remove("hidden");
   loadPrograms();
+}
+
+function enterAttendance() {
+  el.hubRoot.classList.add("hidden");
+  el.attendanceRoot.classList.remove("hidden");
+  loadAttendance();
 }
 
 if (el.moduleVolunteerDashboard) {
@@ -1300,6 +1430,18 @@ if (el.programsRefreshBtn) {
 if (el.programsLockBtn) {
   el.programsLockBtn.addEventListener("click", () => auth.signOut());
 }
+if (el.moduleAttendanceBtn) {
+  el.moduleAttendanceBtn.addEventListener("click", enterAttendance);
+}
+if (el.backToHubBtnAttendance) {
+  el.backToHubBtnAttendance.addEventListener("click", showHub);
+}
+if (el.attendanceRefreshBtn) {
+  el.attendanceRefreshBtn.addEventListener("click", () => loadAttendance({ forceFresh: true }));
+}
+if (el.attendanceLockBtn) {
+  el.attendanceLockBtn.addEventListener("click", () => auth.signOut());
+}
 
 // Firebase persists the session itself (localStorage under the hood), so
 // this fires immediately on page load with the already-signed-in user if
@@ -1310,11 +1452,13 @@ auth.onAuthStateChanged((user) => {
     el.signedInAs.textContent = user.email || "";
     el.hubSignedInAs.textContent = user.email || "";
     el.programsSignedInAs.textContent = user.email || "";
+    el.attendanceSignedInAs.textContent = user.email || "";
     el.gatePassword.value = "";
     showHub();
   } else {
     volunteers = [];
     programs = [];
+    attendance = [];
     // Clear any leftover #volunteerID fragment from a previous session so
     // it can't linger into the next sign-in and skip the hub.
     if (window.location.hash) {
@@ -1322,6 +1466,7 @@ auth.onAuthStateChanged((user) => {
     }
     el.dashboardRoot.classList.add("hidden");
     el.programsRoot.classList.add("hidden");
+    el.attendanceRoot.classList.add("hidden");
     el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
