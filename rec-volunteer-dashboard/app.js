@@ -45,6 +45,17 @@ const ATTENDANCE_CATEGORIES = [
   { key: "Secondary", grid: "attendanceGridSecondary", empty: "attendanceEmptySecondary", overall: "attendanceOverallSecondary" },
 ];
 
+// Which modules and admin rights the signed-in person has — fetched once
+// right after sign-in (resource=me) and used to decide which hub tiles to
+// show. Just drives the UI; the real enforcement for every module lives
+// server-side in Code.gs, same as canEdit above.
+let meModules = [];
+let meIsAdmin = false;
+
+// Admin screen state — the full Coordinators sheet, only ever fetched for
+// someone the server has already confirmed is an admin.
+let coordinators = [];
+
 // filter state
 const filters = {
   search: "",
@@ -144,6 +155,28 @@ const el = {
   attendanceOverallPrePrimary: document.getElementById("attendanceOverallPrePrimary"),
   attendanceOverallPrimary: document.getElementById("attendanceOverallPrimary"),
   attendanceOverallSecondary: document.getElementById("attendanceOverallSecondary"),
+  hubStateMessage: document.getElementById("hubStateMessage"),
+  moduleGrid: document.getElementById("moduleGrid"),
+  moduleAdminBtn: document.getElementById("moduleAdminBtn"),
+  adminRoot: document.getElementById("adminRoot"),
+  backToHubBtnAdmin: document.getElementById("backToHubBtnAdmin"),
+  adminSignedInAs: document.getElementById("adminSignedInAs"),
+  adminRefreshBtn: document.getElementById("adminRefreshBtn"),
+  adminLockBtn: document.getElementById("adminLockBtn"),
+  adminStateMessage: document.getElementById("adminStateMessage"),
+  adminContent: document.getElementById("adminContent"),
+  adminCoordinatorsGrid: document.getElementById("adminCoordinatorsGrid"),
+  adminNewEmail: document.getElementById("adminNewEmail"),
+  adminNewName: document.getElementById("adminNewName"),
+  adminNewCenters: document.getElementById("adminNewCenters"),
+  adminNewNotes: document.getElementById("adminNewNotes"),
+  adminNewModVolunteer: document.getElementById("adminNewModVolunteer"),
+  adminNewModPrograms: document.getElementById("adminNewModPrograms"),
+  adminNewModAttendance: document.getElementById("adminNewModAttendance"),
+  adminNewCanEdit: document.getElementById("adminNewCanEdit"),
+  adminNewIsAdmin: document.getElementById("adminNewIsAdmin"),
+  adminAddError: document.getElementById("adminAddError"),
+  adminAddBtn: document.getElementById("adminAddBtn"),
 };
 
 // ===== Helpers =====
@@ -346,17 +379,64 @@ function computeStats() {
 function friendlyAuthError(code) {
   const messages = {
     not_provisioned:
-      "Your account isn't set up with dashboard access yet. Ask your Southwest RE Centers admin to add you to the Coordinators sheet.",
+      "Your account isn't set up with dashboard access yet. Ask your Southwest RE Centers admin to grant you access.",
+    module_forbidden: "You don't have access to this module. Ask your admin to grant it.",
     invalid_token: "Your sign-in session expired — sign out and back in.",
     missing_token: "Your sign-in session expired — sign out and back in.",
     verification_failed: "Couldn't verify your sign-in — try refreshing the page.",
     missing_id: "Something went wrong preparing that edit — try again.",
     missing_updates: "Something went wrong preparing that edit — try again.",
-    not_found: "Couldn't find that volunteer — try refreshing the page.",
-    forbidden: "You don't have permission to edit this volunteer.",
+    not_found: "Couldn't find that record — try refreshing the page.",
+    forbidden: "You don't have permission to do that.",
     save_failed: "Couldn't save your changes — try again.",
+    invalid_email: "Enter a valid email address.",
+    missing_coordinator: "Something went wrong preparing that save — try again.",
+    cannot_remove_last_admin: "Can't do that — it would leave nobody with Admin access. Make someone else an admin first.",
   };
   return messages[code] || code;
+}
+
+// Fetched right after sign-in, before a single hub tile is shown. Decides
+// which of Attendance/Volunteer/Programs render at all, and whether the
+// Admin tile shows up. A signed-in Firebase account with no Coordinators
+// row gets nothing — not even the Volunteer Dashboard — since the
+// Coordinators sheet (via the Admin screen) is meant to be the one source
+// of truth for every module now, not just volunteer center-scoping.
+async function loadMe() {
+  el.hubStateMessage.classList.add("hidden");
+  el.moduleGrid.classList.remove("hidden");
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const idToken = await user.getIdToken();
+    const params = new URLSearchParams({ idToken, resource: "me" });
+    const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
+
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+
+    meModules = Array.isArray(data.me && data.me.modules) ? data.me.modules : [];
+    meIsAdmin = !!(data.me && data.me.isAdmin);
+    if (data.me && (data.me.name || data.me.email)) {
+      el.hubSignedInAs.textContent = data.me.name || data.me.email;
+    }
+    applyModuleVisibility();
+  } catch (err) {
+    el.moduleGrid.classList.add("hidden");
+    el.hubStateMessage.classList.remove("hidden");
+    el.hubStateMessage.textContent = "Couldn't load your access: " + err.message;
+  }
+}
+
+// Shows/hides each hub tile based on meModules/meIsAdmin. Tiles with no
+// data-module attribute (the two external links) are always shown — this
+// only governs the modules the Admin screen actually manages.
+function applyModuleVisibility() {
+  document.querySelectorAll("#moduleGrid [data-module]").forEach((tile) => {
+    tile.classList.toggle("hidden", meModules.indexOf(tile.dataset.module) === -1);
+  });
+  if (el.moduleAdminBtn) el.moduleAdminBtn.classList.toggle("hidden", !meIsAdmin);
 }
 
 async function loadVolunteers({ forceFresh = false } = {}) {
@@ -1221,6 +1301,242 @@ async function loadAttendance({ forceFresh = false } = {}) {
   }
 }
 
+// ===== Admin module =====
+// Manages the Coordinators sheet from the UI — who can sign in, which
+// modules they see, and (for the Volunteer Dashboard specifically)
+// whether they can edit records. Every write is admin-gated server-side
+// in Code.gs (see doPost's 'coordinator' resource); hiding this tile and
+// section for non-admins here is a convenience, not the real boundary.
+
+function coordinatorRowHtml(c) {
+  const isSelf = !!(auth.currentUser && auth.currentUser.email && c.email.toLowerCase() === auth.currentUser.email.toLowerCase());
+  const moduleCheckbox = (mod, label) => `
+    <label class="admin-checkbox">
+      <input type="checkbox" data-field="modules" value="${escapeAttr(mod)}" ${c.modules.indexOf(mod) > -1 ? "checked" : ""} />
+      ${escapeHtml(label)}
+    </label>`;
+
+  return `
+    <tr data-email="${escapeAttr(c.email)}">
+      <td data-label="Email" class="admin-cell-email">${escapeHtml(c.email)}${isSelf ? ' <span class="admin-you-tag">you</span>' : ""}</td>
+      <td data-label="Name"><input type="text" data-field="name" value="${escapeAttr(c.name)}" /></td>
+      <td data-label="Centers"><input type="text" data-field="centers" value="${escapeAttr(c.centers)}" placeholder="ALL, or comma-separated" /></td>
+      <td data-label="Modules" class="admin-cell-modules">
+        ${moduleCheckbox("Volunteer", "Volunteer")}
+        ${moduleCheckbox("Programs", "Programs")}
+        ${moduleCheckbox("Attendance", "Attendance")}
+      </td>
+      <td data-label="Volunteer Edit"><input type="checkbox" data-field="canEdit" ${c.canEdit ? "checked" : ""} /></td>
+      <td data-label="Admin"><input type="checkbox" data-field="isAdmin" ${c.isAdmin ? "checked" : ""} /></td>
+      <td data-label="Notes"><input type="text" data-field="notes" value="${escapeAttr(c.notes)}" /></td>
+      <td data-label="" class="admin-cell-actions">
+        <button type="button" class="ghost-btn admin-save-btn" data-action="save">Save</button>
+        <button type="button" class="ghost-btn admin-remove-btn" data-action="remove">Remove</button>
+        <p class="program-row-error hidden"></p>
+      </td>
+    </tr>`;
+}
+
+function renderCoordinators() {
+  el.adminCoordinatorsGrid.innerHTML = coordinators.map(coordinatorRowHtml).join("");
+}
+
+async function loadCoordinators({ forceFresh = false } = {}) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  el.adminStateMessage.classList.remove("hidden");
+  el.adminStateMessage.textContent = "Loading…";
+  el.adminContent.classList.add("hidden");
+  el.adminRefreshBtn.classList.add("spinning");
+
+  try {
+    const idToken = await user.getIdToken();
+    const params = new URLSearchParams({ idToken, resource: "admin" });
+    if (forceFresh) params.set("nocache", "1");
+    const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
+
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+
+    coordinators = Array.isArray(data.coordinators) ? data.coordinators : [];
+    if (data.me && (data.me.name || data.me.email)) {
+      el.adminSignedInAs.textContent = data.me.name || data.me.email;
+    }
+
+    renderCoordinators();
+    el.adminStateMessage.classList.add("hidden");
+    el.adminContent.classList.remove("hidden");
+  } catch (err) {
+    el.adminStateMessage.classList.remove("hidden");
+    el.adminStateMessage.textContent = "Couldn't load: " + err.message;
+  } finally {
+    el.adminRefreshBtn.classList.remove("spinning");
+  }
+}
+
+// Reads a table row's current inputs back into a plain coordinator object
+// ready to send to the server. The server re-validates and whitelists
+// everything anyway (see upsertCoordinator in Code.gs) — this is just
+// gathering what's on screen.
+function readCoordinatorRow(row) {
+  const modules = Array.from(row.querySelectorAll('input[data-field="modules"]:checked')).map((cb) => cb.value);
+  return {
+    email: row.dataset.email,
+    name: row.querySelector('input[data-field="name"]').value.trim(),
+    centers: row.querySelector('input[data-field="centers"]').value.trim(),
+    canEdit: row.querySelector('input[data-field="canEdit"]').checked,
+    isAdmin: row.querySelector('input[data-field="isAdmin"]').checked,
+    notes: row.querySelector('input[data-field="notes"]').value.trim(),
+    modules: modules,
+  };
+}
+
+async function saveCoordinator(row) {
+  const errorEl = row.querySelector(".program-row-error");
+  const inputs = row.querySelectorAll("input, button");
+  inputs.forEach((i) => (i.disabled = true));
+  if (errorEl) errorEl.classList.add("hidden");
+
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You're signed out — sign in again.");
+    const idToken = await user.getIdToken();
+    const coordinator = readCoordinatorRow(row);
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
+    });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+
+    const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
+    if (idx > -1) coordinators[idx] = data.coordinator;
+    renderCoordinators();
+
+    // If the admin just edited their OWN row, their modules/admin status
+    // may have changed — refresh the hub's permission summary too so the
+    // tiles reflect it without a full sign-out/in.
+    if (user.email && coordinator.email.toLowerCase() === user.email.toLowerCase()) loadMe();
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = "Couldn't save: " + err.message;
+      errorEl.classList.remove("hidden");
+    }
+    inputs.forEach((i) => (i.disabled = false));
+  }
+}
+
+async function removeCoordinatorRow(row) {
+  const email = row.dataset.email;
+  if (!confirm(`Remove access for ${email}? They'll no longer be able to see any module.`)) return;
+
+  const errorEl = row.querySelector(".program-row-error");
+  const inputs = row.querySelectorAll("input, button");
+  inputs.forEach((i) => (i.disabled = true));
+  if (errorEl) errorEl.classList.add("hidden");
+
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You're signed out — sign in again.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ idToken, resource: "coordinator", action: "remove", targetEmail: email }),
+    });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+
+    coordinators = coordinators.filter((c) => c.email.toLowerCase() !== email.toLowerCase());
+    renderCoordinators();
+  } catch (err) {
+    if (errorEl) {
+      errorEl.textContent = "Couldn't remove: " + err.message;
+      errorEl.classList.remove("hidden");
+    }
+    inputs.forEach((i) => (i.disabled = false));
+  }
+}
+
+el.adminCoordinatorsGrid.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  const row = btn.closest("tr");
+  if (!row) return;
+  if (btn.dataset.action === "save") saveCoordinator(row);
+  else if (btn.dataset.action === "remove") removeCoordinatorRow(row);
+});
+
+async function addCoordinator() {
+  el.adminAddError.classList.add("hidden");
+  const email = el.adminNewEmail.value.trim();
+  if (!email || email.indexOf("@") === -1) {
+    el.adminAddError.textContent = "Enter a valid email address.";
+    el.adminAddError.classList.remove("hidden");
+    return;
+  }
+
+  const modules = [];
+  if (el.adminNewModVolunteer.checked) modules.push("Volunteer");
+  if (el.adminNewModPrograms.checked) modules.push("Programs");
+  if (el.adminNewModAttendance.checked) modules.push("Attendance");
+
+  const coordinator = {
+    email: email,
+    name: el.adminNewName.value.trim(),
+    centers: el.adminNewCenters.value.trim(),
+    canEdit: el.adminNewCanEdit.checked,
+    isAdmin: el.adminNewIsAdmin.checked,
+    notes: el.adminNewNotes.value.trim(),
+    modules: modules,
+  };
+
+  el.adminAddBtn.disabled = true;
+  el.adminAddBtn.textContent = "Adding…";
+
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You're signed out — sign in again.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
+    });
+    const data = await res.json();
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+
+    const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
+    if (idx > -1) coordinators[idx] = data.coordinator;
+    else coordinators.push(data.coordinator);
+    renderCoordinators();
+
+    el.adminNewEmail.value = "";
+    el.adminNewName.value = "";
+    el.adminNewCenters.value = "";
+    el.adminNewNotes.value = "";
+    el.adminNewModVolunteer.checked = false;
+    el.adminNewModPrograms.checked = false;
+    el.adminNewModAttendance.checked = false;
+    el.adminNewCanEdit.checked = false;
+    el.adminNewIsAdmin.checked = false;
+  } catch (err) {
+    el.adminAddError.textContent = "Couldn't add: " + err.message;
+    el.adminAddError.classList.remove("hidden");
+  } finally {
+    el.adminAddBtn.disabled = false;
+    el.adminAddBtn.textContent = "Add Person";
+  }
+}
+
+el.adminAddBtn.addEventListener("click", addCoordinator);
+
 // ===== Event wiring =====
 
 // Collapsible analysis section — collapsing it lets the table sit higher
@@ -1387,6 +1703,7 @@ function showHub() {
   el.dashboardRoot.classList.add("hidden");
   el.programsRoot.classList.add("hidden");
   el.attendanceRoot.classList.add("hidden");
+  el.adminRoot.classList.add("hidden");
   el.hubRoot.classList.remove("hidden");
 }
 
@@ -1409,6 +1726,12 @@ function enterAttendance() {
   el.hubRoot.classList.add("hidden");
   el.attendanceRoot.classList.remove("hidden");
   loadAttendance();
+}
+
+function enterAdmin() {
+  el.hubRoot.classList.add("hidden");
+  el.adminRoot.classList.remove("hidden");
+  loadCoordinators();
 }
 
 if (el.moduleVolunteerDashboard) {
@@ -1441,6 +1764,18 @@ if (el.attendanceRefreshBtn) {
 if (el.attendanceLockBtn) {
   el.attendanceLockBtn.addEventListener("click", () => auth.signOut());
 }
+if (el.moduleAdminBtn) {
+  el.moduleAdminBtn.addEventListener("click", enterAdmin);
+}
+if (el.backToHubBtnAdmin) {
+  el.backToHubBtnAdmin.addEventListener("click", showHub);
+}
+if (el.adminRefreshBtn) {
+  el.adminRefreshBtn.addEventListener("click", () => loadCoordinators({ forceFresh: true }));
+}
+if (el.adminLockBtn) {
+  el.adminLockBtn.addEventListener("click", () => auth.signOut());
+}
 
 // Firebase persists the session itself (localStorage under the hood), so
 // this fires immediately on page load with the already-signed-in user if
@@ -1452,12 +1787,17 @@ auth.onAuthStateChanged((user) => {
     el.hubSignedInAs.textContent = user.email || "";
     el.programsSignedInAs.textContent = user.email || "";
     el.attendanceSignedInAs.textContent = user.email || "";
+    el.adminSignedInAs.textContent = user.email || "";
     el.gatePassword.value = "";
     showHub();
+    loadMe();
   } else {
     volunteers = [];
     programs = [];
     attendance = [];
+    coordinators = [];
+    meModules = [];
+    meIsAdmin = false;
     // Clear any leftover #volunteerID fragment from a previous session so
     // it can't linger into the next sign-in and skip the hub.
     if (window.location.hash) {
@@ -1466,6 +1806,7 @@ auth.onAuthStateChanged((user) => {
     el.dashboardRoot.classList.add("hidden");
     el.programsRoot.classList.add("hidden");
     el.attendanceRoot.classList.add("hidden");
+    el.adminRoot.classList.add("hidden");
     el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
