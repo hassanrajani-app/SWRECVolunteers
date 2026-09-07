@@ -52,8 +52,9 @@
   </header>
 
   <main class="container">
-    <div class="module-grid">
-      <button type="button" class="module-card module-navy" id="moduleAttendanceBtn">
+    <section id="hubStateMessage" class="state-message hidden"></section>
+    <div class="module-grid" id="moduleGrid">
+      <button type="button" class="module-card module-navy hidden" id="moduleAttendanceBtn" data-module="Attendance">
         <div class="module-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="m8 14.5 2.2 2.2L15.5 12" /></svg>
         </div>
@@ -61,7 +62,7 @@
         <p class="module-desc">Attendance percentages by center — Pre-Primary, Primary, and Secondary.</p>
       </button>
 
-      <button type="button" class="module-card module-navy" id="moduleVolunteerDashboard">
+      <button type="button" class="module-card module-navy hidden" id="moduleVolunteerDashboard" data-module="Volunteer">
         <div class="module-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 5 18.5V20"/><circle cx="9.5" cy="8.5" r="3.5"/><path d="M19.5 20v-1.3a3.2 3.2 0 0 0-2.2-3"/><path d="M15.2 5.2a3.2 3.2 0 0 1 0 6.1"/></svg>
         </div>
@@ -69,7 +70,7 @@
         <p class="module-desc">View and manage RE Center volunteer submissions.</p>
       </button>
 
-      <button type="button" class="module-card module-brown" id="moduleProgramsBtn">
+      <button type="button" class="module-card module-brown hidden" id="moduleProgramsBtn" data-module="Programs">
         <div class="module-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M8.5 12.5h7"/><path d="M8.5 15.5h7"/><path d="M8.5 18.5h4"/></svg>
         </div>
@@ -92,6 +93,14 @@
         <h2 class="module-title">RE Launchpad</h2>
         <p class="module-desc">Opens the RE Launchpad site in a new tab.</p>
       </a>
+
+      <button type="button" class="module-card module-brown hidden" id="moduleAdminBtn">
+        <div class="module-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5.5 6.5v5c0 5 2.8 7.7 6.5 9 3.7-1.3 6.5-4 6.5-9v-5L12 3.5Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 16c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg>
+        </div>
+        <h2 class="module-title">Admin</h2>
+        <p class="module-desc">Manage who can sign in and what they can see or edit.</p>
+      </button>
     </div>
   </main>
 
@@ -501,6 +510,101 @@
   </main>
 
   </div><!-- /#attendanceRoot -->
+
+  <!-- Admin screen: add, edit, or remove who can sign in, which modules
+       they can see, and (for the Volunteer Dashboard specifically)
+       whether they can edit records — all without ever opening the
+       Coordinators sheet directly. Hard-gated server-side on Admin
+       (YES/NO) in Code.gs; this tile/section only ever renders for
+       someone the server has already confirmed is an admin. Doesn't
+       create the Firebase sign-in itself — that's still a one-time step
+       in the Firebase console (see README.md) — this screen only manages
+       what an existing account can access once they've signed in once. -->
+  <div id="adminRoot" class="hidden">
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button type="button" id="backToHubBtnAdmin" class="back-btn" title="Back to modules" aria-label="Back to modules">←</button>
+        <span class="brand-mark">SW</span>
+        <div class="brand-text">
+          <h1>ITREB Southwest</h1>
+          <p>Admin</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="adminSignedInAs" class="signed-in-as"></span>
+        <button id="adminRefreshBtn" class="refresh-btn" title="Reload from Google Sheet">
+          <span class="refresh-icon">⟳</span> Refresh
+        </button>
+        <button id="adminLockBtn" class="refresh-btn" title="Sign out">
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section id="adminStateMessage" class="state-message">Loading…</section>
+
+    <div id="adminContent" class="hidden">
+
+      <section class="admin-add-card">
+        <h2 class="admin-add-title">Add a person</h2>
+        <p class="admin-add-hint">They still need a sign-in account created once in the Firebase console (see README.md) — this only sets what that account can see and edit once they sign in.</p>
+        <div class="admin-add-grid">
+          <label class="admin-field">
+            <span>Email</span>
+            <input type="email" id="adminNewEmail" placeholder="name@example.com" />
+          </label>
+          <label class="admin-field">
+            <span>Name</span>
+            <input type="text" id="adminNewName" placeholder="Optional" />
+          </label>
+          <label class="admin-field">
+            <span>Centers</span>
+            <input type="text" id="adminNewCenters" placeholder="ALL, or comma-separated" />
+          </label>
+          <label class="admin-field">
+            <span>Notes</span>
+            <input type="text" id="adminNewNotes" placeholder="Optional" />
+          </label>
+        </div>
+        <div class="admin-add-toggles">
+          <label class="admin-checkbox"><input type="checkbox" id="adminNewModVolunteer" /> Volunteer Dashboard</label>
+          <label class="admin-checkbox"><input type="checkbox" id="adminNewModPrograms" /> ITREB Programs</label>
+          <label class="admin-checkbox"><input type="checkbox" id="adminNewModAttendance" /> Attendance Metrics</label>
+          <label class="admin-checkbox admin-checkbox-divider"><input type="checkbox" id="adminNewCanEdit" /> Can edit volunteer records</label>
+          <label class="admin-checkbox"><input type="checkbox" id="adminNewIsAdmin" /> Admin</label>
+        </div>
+        <p id="adminAddError" class="detail-save-error hidden"></p>
+        <button type="button" class="export-btn" id="adminAddBtn">Add Person</button>
+      </section>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Centers</th>
+              <th>Modules</th>
+              <th>Volunteer&nbsp;Edit</th>
+              <th>Admin</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="adminCoordinatorsGrid"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  </div><!-- /#adminRoot -->
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
