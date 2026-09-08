@@ -1124,15 +1124,52 @@ function renderPrograms() {
   });
 }
 
+// Same per-user localStorage key convention as cacheKeyFor() (Volunteers)
+// — scoped to the signed-in uid so a shared browser never paints one
+// person's cached view for another, even for data that isn't itself
+// per-user like Programs is.
+function programsCacheKeyFor(user) {
+  return "sw-re-programs-cache-v1-" + user.uid;
+}
+
+// Stale-while-revalidate, same pattern as loadVolunteers: paint instantly
+// from whatever's in localStorage (if anything) so this module never sits
+// on a blank "Loading…" screen for a repeat visit, then always fetch live
+// in the background and re-render when that arrives.
 async function loadPrograms({ forceFresh = false } = {}) {
   const user = auth.currentUser;
   if (!user) return;
 
-  el.programsStateMessage.classList.remove("hidden");
-  el.programsStateMessage.textContent = "Loading programs…";
-  el.programsContent.classList.add("hidden");
-  el.programsRefreshBtn.classList.add("spinning");
+  const cacheKey = programsCacheKeyFor(user);
+  let paintedFromCache = false;
+  if (!forceFresh) {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        programs = Array.isArray(cachedData.programs) ? cachedData.programs : [];
+        programLeads = Array.isArray(cachedData.programLeads) ? cachedData.programLeads : [];
+        programStatuses = Array.isArray(cachedData.programStatuses) ? cachedData.programStatuses : [];
+        if (cachedData.me && (cachedData.me.name || cachedData.me.email)) {
+          el.programsSignedInAs.textContent = cachedData.me.name || cachedData.me.email;
+        }
+        renderPrograms();
+        el.programsStateMessage.classList.add("hidden");
+        el.programsContent.classList.remove("hidden");
+        paintedFromCache = true;
+      }
+    } catch (e) {
+      /* ignore corrupt cache */
+    }
+  }
 
+  if (!paintedFromCache) {
+    el.programsStateMessage.classList.remove("hidden");
+    el.programsStateMessage.textContent = "Loading programs…";
+    el.programsContent.classList.add("hidden");
+  }
+
+  el.programsRefreshBtn.classList.add("spinning");
   try {
     const idToken = await user.getIdToken();
     const params = new URLSearchParams({ idToken, resource: "programs" });
@@ -1149,13 +1186,20 @@ async function loadPrograms({ forceFresh = false } = {}) {
     if (data.me && (data.me.name || data.me.email)) {
       el.programsSignedInAs.textContent = data.me.name || data.me.email;
     }
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch (e) {
+      /* storage full/unavailable — not fatal */
+    }
 
     renderPrograms();
     el.programsStateMessage.classList.add("hidden");
     el.programsContent.classList.remove("hidden");
   } catch (err) {
-    el.programsStateMessage.classList.remove("hidden");
-    el.programsStateMessage.textContent = "Couldn't load programs: " + err.message;
+    if (!paintedFromCache) {
+      el.programsStateMessage.classList.remove("hidden");
+      el.programsStateMessage.textContent = "Couldn't load programs: " + err.message;
+    }
   } finally {
     el.programsRefreshBtn.classList.remove("spinning");
   }
@@ -1191,6 +1235,14 @@ async function saveProgramField(id, field, value, selectEl) {
     const idx = programs.findIndex((p) => p.id === id);
     if (idx > -1) programs[idx] = data.program;
     renderPrograms();
+    // Local cache now holds a stale program list — drop it so the next
+    // load (even from a fresh page load before the background fetch
+    // resolves) doesn't briefly repaint the old value first.
+    try {
+      localStorage.removeItem(programsCacheKeyFor(user));
+    } catch (e) {
+      /* ignore */
+    }
   } catch (err) {
     if (errorEl) {
       errorEl.textContent = "Couldn't save: " + err.message;
@@ -1265,15 +1317,44 @@ function renderAttendance() {
   el.attendanceAsOf.textContent = attendanceAsOf ? `Data through ${attendanceAsOf}` : "";
 }
 
+function attendanceCacheKeyFor(user) {
+  return "sw-re-attendance-cache-v1-" + user.uid;
+}
+
+// Same stale-while-revalidate pattern as loadVolunteers/loadPrograms.
 async function loadAttendance({ forceFresh = false } = {}) {
   const user = auth.currentUser;
   if (!user) return;
 
-  el.attendanceStateMessage.classList.remove("hidden");
-  el.attendanceStateMessage.textContent = "Loading attendance…";
-  el.attendanceContent.classList.add("hidden");
-  el.attendanceRefreshBtn.classList.add("spinning");
+  const cacheKey = attendanceCacheKeyFor(user);
+  let paintedFromCache = false;
+  if (!forceFresh) {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        attendance = Array.isArray(cachedData.attendance) ? cachedData.attendance : [];
+        attendanceAsOf = cachedData.attendanceAsOf || "";
+        if (cachedData.me && (cachedData.me.name || cachedData.me.email)) {
+          el.attendanceSignedInAs.textContent = cachedData.me.name || cachedData.me.email;
+        }
+        renderAttendance();
+        el.attendanceStateMessage.classList.add("hidden");
+        el.attendanceContent.classList.remove("hidden");
+        paintedFromCache = true;
+      }
+    } catch (e) {
+      /* ignore corrupt cache */
+    }
+  }
 
+  if (!paintedFromCache) {
+    el.attendanceStateMessage.classList.remove("hidden");
+    el.attendanceStateMessage.textContent = "Loading attendance…";
+    el.attendanceContent.classList.add("hidden");
+  }
+
+  el.attendanceRefreshBtn.classList.add("spinning");
   try {
     const idToken = await user.getIdToken();
     const params = new URLSearchParams({ idToken, resource: "attendance" });
@@ -1289,13 +1370,20 @@ async function loadAttendance({ forceFresh = false } = {}) {
     if (data.me && (data.me.name || data.me.email)) {
       el.attendanceSignedInAs.textContent = data.me.name || data.me.email;
     }
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch (e) {
+      /* storage full/unavailable — not fatal */
+    }
 
     renderAttendance();
     el.attendanceStateMessage.classList.add("hidden");
     el.attendanceContent.classList.remove("hidden");
   } catch (err) {
-    el.attendanceStateMessage.classList.remove("hidden");
-    el.attendanceStateMessage.textContent = "Couldn't load attendance: " + err.message;
+    if (!paintedFromCache) {
+      el.attendanceStateMessage.classList.remove("hidden");
+      el.attendanceStateMessage.textContent = "Couldn't load attendance: " + err.message;
+    }
   } finally {
     el.attendanceRefreshBtn.classList.remove("spinning");
   }
@@ -1341,15 +1429,50 @@ function renderCoordinators() {
   el.adminCoordinatorsGrid.innerHTML = coordinators.map(coordinatorRowHtml).join("");
 }
 
+function adminCacheKeyFor(user) {
+  return "sw-re-admin-cache-v1-" + user.uid;
+}
+
+// Same stale-while-revalidate pattern as the other modules: paint
+// instantly from a local cache (if any) so this screen doesn't sit on a
+// blank "Loading…" for a repeat visit, then always fetch live in the
+// background and re-render when it arrives. Safe to do here even though
+// this is permission data — a save/remove acts on whatever's on screen at
+// the moment it's clicked, and the live fetch that's already in flight by
+// the time an admin has read the table and decided to act will almost
+// always have resolved and corrected any stale paint well before then.
 async function loadCoordinators({ forceFresh = false } = {}) {
   const user = auth.currentUser;
   if (!user) return;
 
-  el.adminStateMessage.classList.remove("hidden");
-  el.adminStateMessage.textContent = "Loading…";
-  el.adminContent.classList.add("hidden");
-  el.adminRefreshBtn.classList.add("spinning");
+  const cacheKey = adminCacheKeyFor(user);
+  let paintedFromCache = false;
+  if (!forceFresh) {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        coordinators = Array.isArray(cachedData.coordinators) ? cachedData.coordinators : [];
+        if (cachedData.me && (cachedData.me.name || cachedData.me.email)) {
+          el.adminSignedInAs.textContent = cachedData.me.name || cachedData.me.email;
+        }
+        renderCoordinators();
+        el.adminStateMessage.classList.add("hidden");
+        el.adminContent.classList.remove("hidden");
+        paintedFromCache = true;
+      }
+    } catch (e) {
+      /* ignore corrupt cache */
+    }
+  }
 
+  if (!paintedFromCache) {
+    el.adminStateMessage.classList.remove("hidden");
+    el.adminStateMessage.textContent = "Loading…";
+    el.adminContent.classList.add("hidden");
+  }
+
+  el.adminRefreshBtn.classList.add("spinning");
   try {
     const idToken = await user.getIdToken();
     const params = new URLSearchParams({ idToken, resource: "admin" });
@@ -1364,13 +1487,20 @@ async function loadCoordinators({ forceFresh = false } = {}) {
     if (data.me && (data.me.name || data.me.email)) {
       el.adminSignedInAs.textContent = data.me.name || data.me.email;
     }
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch (e) {
+      /* storage full/unavailable — not fatal */
+    }
 
     renderCoordinators();
     el.adminStateMessage.classList.add("hidden");
     el.adminContent.classList.remove("hidden");
   } catch (err) {
-    el.adminStateMessage.classList.remove("hidden");
-    el.adminStateMessage.textContent = "Couldn't load: " + err.message;
+    if (!paintedFromCache) {
+      el.adminStateMessage.classList.remove("hidden");
+      el.adminStateMessage.textContent = "Couldn't load: " + err.message;
+    }
   } finally {
     el.adminRefreshBtn.classList.remove("spinning");
   }
@@ -1416,6 +1546,11 @@ async function saveCoordinator(row) {
     const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
     if (idx > -1) coordinators[idx] = data.coordinator;
     renderCoordinators();
+    try {
+      localStorage.removeItem(adminCacheKeyFor(user));
+    } catch (e) {
+      /* ignore */
+    }
 
     // If the admin just edited their OWN row, their modules/admin status
     // may have changed — refresh the hub's permission summary too so the
@@ -1454,6 +1589,11 @@ async function removeCoordinatorRow(row) {
 
     coordinators = coordinators.filter((c) => c.email.toLowerCase() !== email.toLowerCase());
     renderCoordinators();
+    try {
+      localStorage.removeItem(adminCacheKeyFor(user));
+    } catch (e) {
+      /* ignore */
+    }
   } catch (err) {
     if (errorEl) {
       errorEl.textContent = "Couldn't remove: " + err.message;
@@ -1516,6 +1656,11 @@ async function addCoordinator() {
     if (idx > -1) coordinators[idx] = data.coordinator;
     else coordinators.push(data.coordinator);
     renderCoordinators();
+    try {
+      localStorage.removeItem(adminCacheKeyFor(user));
+    } catch (e) {
+      /* ignore */
+    }
 
     el.adminNewEmail.value = "";
     el.adminNewName.value = "";
