@@ -1870,7 +1870,13 @@ function enterPrograms() {
 function enterAttendance() {
   el.hubRoot.classList.add("hidden");
   el.attendanceRoot.classList.remove("hidden");
-  loadAttendance();
+  // Deliberately force a live, cache-free fetch every time this module is
+  // opened rather than using the usual stale-while-revalidate pattern.
+  // Attendance is opened rarely (not several times a day like Volunteers),
+  // so there's no meaningful performance cost to skipping the cache here —
+  // but the cost of showing a stale "as of" date/percentages after a fresh
+  // paste, until someone happens to remember to click Refresh, was real.
+  loadAttendance({ forceFresh: true });
 }
 
 function enterAdmin() {
