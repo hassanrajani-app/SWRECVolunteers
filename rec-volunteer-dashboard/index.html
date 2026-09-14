@@ -114,32 +114,47 @@
 
   </div><!-- /#hubRoot -->
 
-  <!-- PMP Service Maintenance info modal — shown on top of the hub when
-       modulePmpBtn is clicked. Gated the same way as Volunteer/Programs/
-       Attendance (see data-module="PMP" on the button above, checked
-       against meModules from loadMe()), but unlike those it has no real
-       "module" section of its own to swap into — no data to load, just an
-       info panel that explains the form before sending the person out to
-       the real PMP site, since the request itself doesn't warrant a full
-       page swap. -->
-  <div id="pmpModalOverlay" class="modal-overlay hidden">
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="pmpModalTitle">
-      <button type="button" class="modal-close-btn" id="pmpModalCloseBtn" aria-label="Close">&times;</button>
-      <h2 id="pmpModalTitle" class="modal-title">Service Maintenance Request Form</h2>
-      <p class="modal-body-text">
-        This form is intended only for those serving in an appointed role, assigned as a JK lead, or staff members.
-        It is solely to be used for property-related maintenance requests. If something is not working as it
-        should or seems damaged, please fill out the form and provide as much detail as possible.
+  <!-- PMP Service Maintenance: not a data module (nothing to load from the
+       sheet, no sheet tab of its own) — just an info page that explains
+       the request form before sending the person out to the real PMP
+       site. Full page swap like every other module (see enterPmp() in
+       app.js), gated the same way as Volunteer/Programs/Attendance via
+       data-module="PMP" on the hub tile, checked against meModules from
+       loadMe(). -->
+  <div id="pmpRoot" class="hidden">
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button type="button" id="backToHubBtnPmp" class="back-btn" title="Back to modules" aria-label="Back to modules">←</button>
+        <span class="brand-mark">SW</span>
+        <div class="brand-text">
+          <h1>ITREB Southwest</h1>
+          <p>PMP Service Maintenance</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="info-page-card">
+      <h2 class="info-page-title">Service Maintenance Request Form</h2>
+      <p class="info-page-text">
+        This form is intended only for those serving in an appointed role, assigned as a JK lead, or staff
+        members. It is solely to be used for property-related maintenance requests. If something is not
+        working as it should or seems damaged, please fill out the form and provide as much detail as possible.
       </p>
-      <p class="modal-body-text">
-        If the item is an emergency or urgent need (A/C, audio, lighting, wifi, etc.), please still fill out the
-        form, but also contact the property manager promptly.
+      <p class="info-page-text">
+        If the item is an emergency or urgent need (A/C, audio, lighting, wifi, etc.), please still fill out
+        the form, but also contact the property manager promptly.
       </p>
-      <a class="modal-primary-btn" href="https://nationalpmp.com/servicerequest/ServiceRequestByOtp.aspx" target="_blank" rel="noopener">
+      <a class="info-page-link-btn" href="https://nationalpmp.com/servicerequest/ServiceRequestByOtp.aspx" target="_blank" rel="noopener">
         Go to Service Request Form ↗
       </a>
     </div>
-  </div>
+  </main>
+
+  </div><!-- /#pmpRoot -->
 
   <div id="dashboardRoot" class="hidden">
 
