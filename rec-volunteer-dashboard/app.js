@@ -159,8 +159,8 @@ const el = {
   moduleGrid: document.getElementById("moduleGrid"),
   moduleAdminBtn: document.getElementById("moduleAdminBtn"),
   modulePmpBtn: document.getElementById("modulePmpBtn"),
-  pmpModalOverlay: document.getElementById("pmpModalOverlay"),
-  pmpModalCloseBtn: document.getElementById("pmpModalCloseBtn"),
+  pmpRoot: document.getElementById("pmpRoot"),
+  backToHubBtnPmp: document.getElementById("backToHubBtnPmp"),
   adminRoot: document.getElementById("adminRoot"),
   backToHubBtnAdmin: document.getElementById("backToHubBtnAdmin"),
   adminSignedInAs: document.getElementById("adminSignedInAs"),
@@ -1856,6 +1856,7 @@ function showHub() {
   el.programsRoot.classList.add("hidden");
   el.attendanceRoot.classList.add("hidden");
   el.adminRoot.classList.add("hidden");
+  el.pmpRoot.classList.add("hidden");
   el.hubRoot.classList.remove("hidden");
 }
 
@@ -1884,6 +1885,15 @@ function enterAttendance() {
   // but the cost of showing a stale "as of" date/percentages after a fresh
   // paste, until someone happens to remember to click Refresh, was real.
   loadAttendance({ forceFresh: true });
+}
+
+// PMP Service Maintenance is gated like Volunteer/Programs/Attendance
+// (applyModuleVisibility shows/hides the hub tile based on meModules), but
+// it's a static info page — nothing to fetch from the sheet, so there's no
+// loadX() call here the way every other enter*() function has one.
+function enterPmp() {
+  el.hubRoot.classList.add("hidden");
+  el.pmpRoot.classList.remove("hidden");
 }
 
 function enterAdmin() {
@@ -1925,24 +1935,11 @@ if (el.attendanceLockBtn) {
 if (el.moduleAdminBtn) {
   el.moduleAdminBtn.addEventListener("click", enterAdmin);
 }
-// PMP Service Maintenance is gated like Volunteer/Programs/Attendance
-// (applyModuleVisibility shows/hides the button itself based on
-// meModules), but it's just an info modal on top of the hub, not a full
-// module section — no hub swap, nothing to load from the sheet.
-if (el.modulePmpBtn && el.pmpModalOverlay) {
-  el.modulePmpBtn.addEventListener("click", () => {
-    el.pmpModalOverlay.classList.remove("hidden");
-  });
-  el.pmpModalCloseBtn.addEventListener("click", () => {
-    el.pmpModalOverlay.classList.add("hidden");
-  });
-  // Clicking the dimmed backdrop (not the box itself) also closes it.
-  el.pmpModalOverlay.addEventListener("click", (e) => {
-    if (e.target === el.pmpModalOverlay) el.pmpModalOverlay.classList.add("hidden");
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") el.pmpModalOverlay.classList.add("hidden");
-  });
+if (el.modulePmpBtn) {
+  el.modulePmpBtn.addEventListener("click", enterPmp);
+}
+if (el.backToHubBtnPmp) {
+  el.backToHubBtnPmp.addEventListener("click", showHub);
 }
 if (el.backToHubBtnAdmin) {
   el.backToHubBtnAdmin.addEventListener("click", showHub);
@@ -1984,6 +1981,7 @@ auth.onAuthStateChanged((user) => {
     el.programsRoot.classList.add("hidden");
     el.attendanceRoot.classList.add("hidden");
     el.adminRoot.classList.add("hidden");
+    el.pmpRoot.classList.add("hidden");
     el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
