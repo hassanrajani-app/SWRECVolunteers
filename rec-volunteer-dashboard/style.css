@@ -280,6 +280,44 @@ body {
 .module-brown .module-icon { background: #ecdfd0; color: var(--brown); }
 .module-gender .module-icon { background: #f1e6da; color: var(--brown-light); }
 
+/* ===== PMP Service Maintenance info page =====
+   A single centered card in the page body — no data to load, no table,
+   no grid, so it doesn't reuse the dashboard/programs/attendance layouts.
+   Just a heading, a couple of paragraphs, and one prominent link out. */
+.info-page-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px clamp(24px, 5vw, 48px);
+  max-width: 640px;
+  margin: 32px auto;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(34, 58, 94, 0.05);
+}
+.info-page-title {
+  margin: 0 0 20px;
+  color: var(--navy);
+  font-size: 1.4rem;
+}
+.info-page-text {
+  margin: 0 0 16px;
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 0.98rem;
+  text-align: left;
+}
+.info-page-link-btn {
+  display: inline-block;
+  margin-top: 16px;
+  background: var(--navy);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 13px 28px;
+  border-radius: 10px;
+}
+.info-page-link-btn:hover { background: var(--navy-dark); }
+
 .module-title {
   margin: 0;
   font-size: 19px;
