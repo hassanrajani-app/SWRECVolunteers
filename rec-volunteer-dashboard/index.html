@@ -78,7 +78,7 @@
         <p class="module-desc">Track program proposals — status and lead at a glance.</p>
       </button>
 
-      <a class="module-card module-gender" href="https://nationalusarec.org/login" target="_blank" rel="noopener">
+      <a class="module-card module-gender" href="https://nationalusarec.org/dashboard" target="_blank" rel="noopener">
         <div class="module-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
         </div>
@@ -94,6 +94,14 @@
         <p class="module-desc">Opens the RE Launchpad site in a new tab.</p>
       </a>
 
+      <button type="button" class="module-card module-blue hidden" id="modulePmpBtn" data-module="PMP">
+        <div class="module-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6.5 17.5 10 8 19.5 4.5 16 14 6.5Z"/><path d="M12.5 8 16 11.5"/><path d="M3 21l1.5-4L8 19.5 3 21Z"/></svg>
+        </div>
+        <h2 class="module-title">PMP Service Maintenance</h2>
+        <p class="module-desc">Submit a property-related maintenance request.</p>
+      </button>
+
       <button type="button" class="module-card module-brown hidden" id="moduleAdminBtn">
         <div class="module-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5.5 6.5v5c0 5 2.8 7.7 6.5 9 3.7-1.3 6.5-4 6.5-9v-5L12 3.5Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 16c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg>
@@ -105,6 +113,33 @@
   </main>
 
   </div><!-- /#hubRoot -->
+
+  <!-- PMP Service Maintenance info modal — shown on top of the hub when
+       modulePmpBtn is clicked. Gated the same way as Volunteer/Programs/
+       Attendance (see data-module="PMP" on the button above, checked
+       against meModules from loadMe()), but unlike those it has no real
+       "module" section of its own to swap into — no data to load, just an
+       info panel that explains the form before sending the person out to
+       the real PMP site, since the request itself doesn't warrant a full
+       page swap. -->
+  <div id="pmpModalOverlay" class="modal-overlay hidden">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="pmpModalTitle">
+      <button type="button" class="modal-close-btn" id="pmpModalCloseBtn" aria-label="Close">&times;</button>
+      <h2 id="pmpModalTitle" class="modal-title">Service Maintenance Request Form</h2>
+      <p class="modal-body-text">
+        This form is intended only for those serving in an appointed role, assigned as a JK lead, or staff members.
+        It is solely to be used for property-related maintenance requests. If something is not working as it
+        should or seems damaged, please fill out the form and provide as much detail as possible.
+      </p>
+      <p class="modal-body-text">
+        If the item is an emergency or urgent need (A/C, audio, lighting, wifi, etc.), please still fill out the
+        form, but also contact the property manager promptly.
+      </p>
+      <a class="modal-primary-btn" href="https://nationalpmp.com/servicerequest/ServiceRequestByOtp.aspx" target="_blank" rel="noopener">
+        Go to Service Request Form ↗
+      </a>
+    </div>
+  </div>
 
   <div id="dashboardRoot" class="hidden">
 
@@ -575,6 +610,7 @@
           <label class="admin-checkbox"><input type="checkbox" id="adminNewModVolunteer" /> Volunteer Dashboard</label>
           <label class="admin-checkbox"><input type="checkbox" id="adminNewModPrograms" /> ITREB Programs</label>
           <label class="admin-checkbox"><input type="checkbox" id="adminNewModAttendance" /> Attendance Metrics</label>
+          <label class="admin-checkbox"><input type="checkbox" id="adminNewModPmp" /> PMP Service Maintenance</label>
           <label class="admin-checkbox admin-checkbox-divider"><input type="checkbox" id="adminNewCanEdit" /> Can edit volunteer records</label>
           <label class="admin-checkbox"><input type="checkbox" id="adminNewIsAdmin" /> Admin</label>
         </div>
