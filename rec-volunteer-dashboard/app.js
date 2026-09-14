@@ -158,6 +158,9 @@ const el = {
   hubStateMessage: document.getElementById("hubStateMessage"),
   moduleGrid: document.getElementById("moduleGrid"),
   moduleAdminBtn: document.getElementById("moduleAdminBtn"),
+  modulePmpBtn: document.getElementById("modulePmpBtn"),
+  pmpModalOverlay: document.getElementById("pmpModalOverlay"),
+  pmpModalCloseBtn: document.getElementById("pmpModalCloseBtn"),
   adminRoot: document.getElementById("adminRoot"),
   backToHubBtnAdmin: document.getElementById("backToHubBtnAdmin"),
   adminSignedInAs: document.getElementById("adminSignedInAs"),
@@ -173,6 +176,7 @@ const el = {
   adminNewModVolunteer: document.getElementById("adminNewModVolunteer"),
   adminNewModPrograms: document.getElementById("adminNewModPrograms"),
   adminNewModAttendance: document.getElementById("adminNewModAttendance"),
+  adminNewModPmp: document.getElementById("adminNewModPmp"),
   adminNewCanEdit: document.getElementById("adminNewCanEdit"),
   adminNewIsAdmin: document.getElementById("adminNewIsAdmin"),
   adminAddError: document.getElementById("adminAddError"),
@@ -1412,6 +1416,7 @@ function coordinatorRowHtml(c) {
       <td data-label="Modules" class="admin-cell-modules">
         ${moduleCheckbox("Volunteer", "Volunteer")}
         ${moduleCheckbox("Programs", "Programs")}
+        ${moduleCheckbox("PMP", "PMP")}
         ${moduleCheckbox("Attendance", "Attendance")}
       </td>
       <td data-label="Volunteer Edit"><input type="checkbox" data-field="canEdit" ${c.canEdit ? "checked" : ""} /></td>
@@ -1625,6 +1630,7 @@ async function addCoordinator() {
   if (el.adminNewModVolunteer.checked) modules.push("Volunteer");
   if (el.adminNewModPrograms.checked) modules.push("Programs");
   if (el.adminNewModAttendance.checked) modules.push("Attendance");
+  if (el.adminNewModPmp.checked) modules.push("PMP");
 
   const coordinator = {
     email: email,
@@ -1669,6 +1675,7 @@ async function addCoordinator() {
     el.adminNewModVolunteer.checked = false;
     el.adminNewModPrograms.checked = false;
     el.adminNewModAttendance.checked = false;
+    el.adminNewModPmp.checked = false;
     el.adminNewCanEdit.checked = false;
     el.adminNewIsAdmin.checked = false;
   } catch (err) {
@@ -1917,6 +1924,25 @@ if (el.attendanceLockBtn) {
 }
 if (el.moduleAdminBtn) {
   el.moduleAdminBtn.addEventListener("click", enterAdmin);
+}
+// PMP Service Maintenance is gated like Volunteer/Programs/Attendance
+// (applyModuleVisibility shows/hides the button itself based on
+// meModules), but it's just an info modal on top of the hub, not a full
+// module section — no hub swap, nothing to load from the sheet.
+if (el.modulePmpBtn && el.pmpModalOverlay) {
+  el.modulePmpBtn.addEventListener("click", () => {
+    el.pmpModalOverlay.classList.remove("hidden");
+  });
+  el.pmpModalCloseBtn.addEventListener("click", () => {
+    el.pmpModalOverlay.classList.add("hidden");
+  });
+  // Clicking the dimmed backdrop (not the box itself) also closes it.
+  el.pmpModalOverlay.addEventListener("click", (e) => {
+    if (e.target === el.pmpModalOverlay) el.pmpModalOverlay.classList.add("hidden");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") el.pmpModalOverlay.classList.add("hidden");
+  });
 }
 if (el.backToHubBtnAdmin) {
   el.backToHubBtnAdmin.addEventListener("click", showHub);
