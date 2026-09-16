@@ -1335,13 +1335,33 @@ function attendanceLevel(pct) {
   return "low";
 }
 
+// Front shows the percentage (unchanged); back shows a headcount, flipped
+// to on click/tap/Enter — see the delegated listener in "Event wiring"
+// below. That count comes from Code.gs's `students` field: each
+// grade+section's own most recently reported roster size, summed across
+// every section in this category+center — a stable enrollment figure
+// (see buildAttendanceSummary's comment), not the cumulative
+// year-to-date `total` the percentage math uses.
 function attendanceCardHtml(row) {
   const level = attendanceLevel(row.percent);
   const pctText = row.percent != null ? row.percent.toFixed(1) + "%" : "—";
+  const studentsText = row.students > 0
+    ? row.students + (row.students === 1 ? " student" : " students")
+    : "No enrollment on file";
   return `
-    <div class="attendance-card attendance-card-${level}">
-      <p class="attendance-card-center">${escapeHtml(row.center)}</p>
-      <p class="attendance-card-pct">${pctText}</p>
+    <div class="attendance-card attendance-card-${level}" tabindex="0" role="button" aria-label="${escapeAttr(row.center)}, ${pctText} attendance. Press to flip and see student count.">
+      <div class="attendance-card-inner">
+        <div class="attendance-card-face attendance-card-front">
+          <p class="attendance-card-center">${escapeHtml(row.center)}</p>
+          <p class="attendance-card-pct">${pctText}</p>
+          <p class="attendance-card-hint">Tap for student count</p>
+        </div>
+        <div class="attendance-card-face attendance-card-back">
+          <p class="attendance-card-center">${escapeHtml(row.center)}</p>
+          <p class="attendance-card-students">${studentsText}</p>
+          <p class="attendance-card-hint">Total enrolled</p>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -1987,6 +2007,27 @@ if (el.attendanceRefreshBtn) {
 if (el.attendanceLockBtn) {
   el.attendanceLockBtn.addEventListener("click", () => auth.signOut());
 }
+// Flip-to-reveal-headcount on the attendance cards. Delegated onto each
+// category grid (not onto individual cards) since renderAttendance()
+// replaces the grid's innerHTML wholesale on every load/refresh — a
+// listener on the cards themselves would be destroyed and need
+// re-attaching every time; one delegated listener on the stable grid
+// container survives any number of re-renders.
+ATTENDANCE_CATEGORIES.forEach(({ grid }) => {
+  const gridEl = document.getElementById(grid);
+  if (!gridEl) return;
+  gridEl.addEventListener("click", (e) => {
+    const card = e.target.closest(".attendance-card");
+    if (card) card.classList.toggle("flipped");
+  });
+  gridEl.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const card = e.target.closest(".attendance-card");
+    if (!card) return;
+    e.preventDefault();
+    card.classList.toggle("flipped");
+  });
+});
 if (el.moduleAdminBtn) {
   el.moduleAdminBtn.addEventListener("click", enterAdmin);
 }
