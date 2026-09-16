@@ -1322,22 +1322,53 @@ body {
   gap: 14px;
 }
 
+/* Flip card: .attendance-card is the click/tap target and 3D perspective
+   root; .attendance-card-inner is what actually rotates; front/back are
+   absolutely-positioned faces stacked on top of each other, each hidden
+   when facing away via backface-visibility. Fixed height on -inner is
+   required since absolutely-positioned children don't contribute to
+   their parent's height on their own. */
 .attendance-card {
+  cursor: pointer;
+  perspective: 1000px;
+  outline: none;
+  border-radius: 12px;
+}
+.attendance-card:focus-visible {
+  box-shadow: 0 0 0 2px var(--blue);
+}
+.attendance-card-inner {
+  position: relative;
+  width: 100%;
+  height: 138px;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+.attendance-card.flipped .attendance-card-inner {
+  transform: rotateY(180deg);
+}
+
+.attendance-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
+  gap: 8px;
   background: var(--card);
   border: 1px solid var(--border);
   border-top: 4px solid var(--border);
   border-radius: 12px;
   padding: 22px 16px;
-  gap: 8px;
 }
-.attendance-card-good { border-top-color: #2fa360; }
-.attendance-card-watch { border-top-color: #d99a1f; }
-.attendance-card-low { border-top-color: #c0392b; }
+.attendance-card-back { transform: rotateY(180deg); }
+
+.attendance-card-good .attendance-card-face { border-top-color: #2fa360; }
+.attendance-card-watch .attendance-card-face { border-top-color: #d99a1f; }
+.attendance-card-low .attendance-card-face { border-top-color: #c0392b; }
 
 .attendance-card-center {
   font-size: 13.5px;
@@ -1356,6 +1387,20 @@ body {
 .attendance-card-good .attendance-card-pct { color: #1f7a4d; }
 .attendance-card-watch .attendance-card-pct { color: #8a5b12; }
 .attendance-card-low .attendance-card-pct { color: #a02f2f; }
+
+.attendance-card-students {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--navy);
+  line-height: 1;
+}
+
+.attendance-card-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
 
 @media (max-width: 760px) {
   .attendance-card-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
