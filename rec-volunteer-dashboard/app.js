@@ -400,18 +400,58 @@ function friendlyAuthError(code) {
   return messages[code] || code;
 }
 
+function meCacheKeyFor(user) {
+  return "sw-re-me-cache-v1-" + user.uid;
+}
+
 // Fetched right after sign-in, before a single hub tile is shown. Decides
-// which of Attendance/Volunteer/Programs render at all, and whether the
+// which of Attendance/Volunteer/Programs/PMP render at all, and whether the
 // Admin tile shows up. A signed-in Firebase account with no Coordinators
 // row gets nothing — not even the Volunteer Dashboard — since the
 // Coordinators sheet (via the Admin screen) is meant to be the one source
 // of truth for every module now, not just volunteer center-scoping.
+//
+// moduleGrid starts (and stays, on a cold load) hidden until access is
+// known, then reveals every tile at once with visibility already applied.
+// Previously the grid was shown immediately while individual gated tiles
+// stayed hidden until this finished — which meant the two ungated tiles
+// (Safeguarding/Launchpad) popped in right away and everything else
+// visibly trickled in a few seconds later. Same stale-while-revalidate
+// pattern as loadVolunteers/loadPrograms/loadAttendance/loadCoordinators:
+// a returning session paints instantly (correctly) from cache while this
+// still re-checks live in the background, since access can change.
 async function loadMe() {
+  const user = auth.currentUser;
+  if (!user) return;
+
   el.hubStateMessage.classList.add("hidden");
-  el.moduleGrid.classList.remove("hidden");
+
+  const cacheKey = meCacheKeyFor(user);
+  let paintedFromCache = false;
   try {
-    const user = auth.currentUser;
-    if (!user) return;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const cachedData = JSON.parse(cached);
+      meModules = Array.isArray(cachedData.modules) ? cachedData.modules : [];
+      meIsAdmin = !!cachedData.isAdmin;
+      if (cachedData.name || cachedData.email) {
+        el.hubSignedInAs.textContent = cachedData.name || cachedData.email;
+      }
+      applyModuleVisibility();
+      el.moduleGrid.classList.remove("hidden");
+      paintedFromCache = true;
+    }
+  } catch (e) {
+    /* ignore corrupt cache */
+  }
+
+  if (!paintedFromCache) {
+    el.moduleGrid.classList.add("hidden");
+    el.hubStateMessage.classList.remove("hidden");
+    el.hubStateMessage.textContent = "Loading your modules…";
+  }
+
+  try {
     const idToken = await user.getIdToken();
     const params = new URLSearchParams({ idToken, resource: "me" });
     const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
@@ -425,11 +465,26 @@ async function loadMe() {
     if (data.me && (data.me.name || data.me.email)) {
       el.hubSignedInAs.textContent = data.me.name || data.me.email;
     }
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        modules: meModules,
+        isAdmin: meIsAdmin,
+        name: data.me && data.me.name,
+        email: data.me && data.me.email,
+      }));
+    } catch (e) {
+      /* storage full/unavailable — not fatal */
+    }
+
     applyModuleVisibility();
+    el.hubStateMessage.classList.add("hidden");
+    el.moduleGrid.classList.remove("hidden");
   } catch (err) {
-    el.moduleGrid.classList.add("hidden");
-    el.hubStateMessage.classList.remove("hidden");
-    el.hubStateMessage.textContent = "Couldn't load your access: " + err.message;
+    if (!paintedFromCache) {
+      el.moduleGrid.classList.add("hidden");
+      el.hubStateMessage.classList.remove("hidden");
+      el.hubStateMessage.textContent = "Couldn't load your access: " + err.message;
+    }
   }
 }
 
