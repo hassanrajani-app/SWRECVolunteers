@@ -378,6 +378,40 @@ function computeStats() {
 
 // ===== Load data (stale-while-revalidate) =====
 
+// Wraps fetch with a client-side timeout and safe JSON parsing, used by
+// every request to the Apps Script backend. Apps Script has no fixed
+// SLA — a cold start, a shared-quota hiccup, or the sheet simply growing
+// can occasionally make a request take far longer than normal, and when
+// Apps Script itself hits an execution-time or quota limit, it returns an
+// HTML error page instead of JSON. Before this helper existed, a slow
+// request just meant "Loading…" forever with no way out, and an HTML
+// response meant a raw "Unexpected token <" thrown straight at the user.
+// Both now surface as one clear, actionable message instead.
+async function fetchJson(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, { ...options, cache: "no-store", signal: controller.signal });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("The server is taking too long to respond. Please try again in a moment.");
+    }
+    throw new Error("Couldn't reach the server. Check your connection and try again.");
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    throw new Error("Server error (" + res.status + ") — try again.");
+  }
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error("The server sent back an unexpected response. Please try again in a moment.");
+  }
+}
+
 // Friendly text for the error codes Code.gs can return once server-side
 // auth is wired up (see README.md's Firebase section for the full list).
 function friendlyAuthError(code) {
@@ -456,8 +490,7 @@ async function loadMe() {
     const params = new URLSearchParams({ idToken, resource: "me" });
     const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
 
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
+    const data = await fetchJson(url);
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
     meModules = Array.isArray(data.me && data.me.modules) ? data.me.modules : [];
@@ -557,8 +590,7 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     if (forceFresh) params.set("nocache", "1");
     const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
 
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
+    const data = await fetchJson(url);
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
     volunteers = withComputed(data.volunteers || []);
@@ -1000,7 +1032,7 @@ async function saveDetailEdit() {
     if (!user) throw new Error("You're signed out — sign in again.");
     const idToken = await user.getIdToken();
 
-    const res = await fetch(APPS_SCRIPT_URL, {
+    const data = await fetchJson(APPS_SCRIPT_URL, {
       method: "POST",
       // Deliberately no Content-Type header: setting one (e.g.
       // application/json) makes the browser send a CORS preflight
@@ -1010,9 +1042,8 @@ async function saveDetailEdit() {
       // JSON.parse()s the raw body regardless of the declared type.
       body: JSON.stringify({ idToken, id, updates }),
     });
-    const data = await res.json();
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+    if (!data || !data.ok) throw new Error("Server error — try again.");
 
     // Patch local state immediately so the table/filters/stats reflect
     // the edit without waiting on a full reload, then drop the stale
@@ -1235,8 +1266,7 @@ async function loadPrograms({ forceFresh = false } = {}) {
     if (forceFresh) params.set("nocache", "1");
     const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
 
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
+    const data = await fetchJson(url);
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
     programs = Array.isArray(data.programs) ? data.programs : [];
@@ -1283,13 +1313,12 @@ async function saveProgramField(id, field, value, selectEl) {
     if (!user) throw new Error("You're signed out — sign in again.");
     const idToken = await user.getIdToken();
 
-    const res = await fetch(APPS_SCRIPT_URL, {
+    const data = await fetchJson(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ idToken, resource: "program", id, updates: { [field]: value } }),
     });
-    const data = await res.json();
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+    if (!data || !data.ok) throw new Error("Server error — try again.");
 
     const idx = programs.findIndex((p) => p.id === id);
     if (idx > -1) programs[idx] = data.program;
@@ -1440,8 +1469,7 @@ async function loadAttendance({ forceFresh = false } = {}) {
     if (forceFresh) params.set("nocache", "1");
     const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
 
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
+    const data = await fetchJson(url);
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
     attendance = Array.isArray(data.attendance) ? data.attendance : [];
@@ -1559,8 +1587,7 @@ async function loadCoordinators({ forceFresh = false } = {}) {
     if (forceFresh) params.set("nocache", "1");
     const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
 
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
+    const data = await fetchJson(url);
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
     coordinators = Array.isArray(data.coordinators) ? data.coordinators : [];
@@ -1615,13 +1642,12 @@ async function saveCoordinator(row) {
     const idToken = await user.getIdToken();
     const coordinator = readCoordinatorRow(row);
 
-    const res = await fetch(APPS_SCRIPT_URL, {
+    const data = await fetchJson(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
     });
-    const data = await res.json();
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+    if (!data || !data.ok) throw new Error("Server error — try again.");
 
     const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
     if (idx > -1) coordinators[idx] = data.coordinator;
@@ -1659,13 +1685,12 @@ async function removeCoordinatorRow(row) {
     if (!user) throw new Error("You're signed out — sign in again.");
     const idToken = await user.getIdToken();
 
-    const res = await fetch(APPS_SCRIPT_URL, {
+    const data = await fetchJson(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ idToken, resource: "coordinator", action: "remove", targetEmail: email }),
     });
-    const data = await res.json();
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+    if (!data || !data.ok) throw new Error("Server error — try again.");
 
     coordinators = coordinators.filter((c) => c.email.toLowerCase() !== email.toLowerCase());
     renderCoordinators();
@@ -1725,13 +1750,12 @@ async function addCoordinator() {
     if (!user) throw new Error("You're signed out — sign in again.");
     const idToken = await user.getIdToken();
 
-    const res = await fetch(APPS_SCRIPT_URL, {
+    const data = await fetchJson(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
     });
-    const data = await res.json();
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!res.ok || !data || !data.ok) throw new Error("Server error — try again.");
+    if (!data || !data.ok) throw new Error("Server error — try again.");
 
     const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
     if (idx > -1) coordinators[idx] = data.coordinator;
@@ -1953,13 +1977,19 @@ function enterPrograms() {
 function enterAttendance() {
   el.hubRoot.classList.add("hidden");
   el.attendanceRoot.classList.remove("hidden");
-  // Deliberately force a live, cache-free fetch every time this module is
-  // opened rather than using the usual stale-while-revalidate pattern.
-  // Attendance is opened rarely (not several times a day like Volunteers),
-  // so there's no meaningful performance cost to skipping the cache here —
-  // but the cost of showing a stale "as of" date/percentages after a fresh
-  // paste, until someone happens to remember to click Refresh, was real.
-  loadAttendance({ forceFresh: true });
+  // Reverted from always forcing a live, cache-free fetch on every open
+  // (nocache=1) back to the normal stale-while-revalidate pattern used
+  // everywhere else. That "always force fresh" change traded away the
+  // server cache's real benefit: every single open paid the full cost of
+  // a live Apps Script run with no fast/safe fallback if it happened to
+  // be slow, rate-limited, or transiently erroring — which is exactly
+  // what showed up as "loads forever" / "JSON error" / stuck on "Loading
+  // attendance…". The server-side cache TTL was shortened to 2 minutes
+  // (see ATTENDANCE_CACHE_SECONDS in Code.gs) so this doesn't meaningfully
+  // reintroduce staleness — attendance data only changes when someone
+  // hand-pastes a new report, at most weekly. The Refresh button still
+  // forces a true live fetch for anyone who wants to check immediately.
+  loadAttendance();
 }
 
 // PMP Service Maintenance is gated like Volunteer/Programs/Attendance
