@@ -662,6 +662,13 @@ function setupMultiSelect({ btnId, panelId, badgeId, getOptions, selectedSet, on
   }
 
   panel.addEventListener("click", (e) => {
+    // Without this, a click on a checkbox (or Select all/Clear) bubbles up
+    // to the document-level "click outside closes every panel" listener
+    // below — which was only meant to catch clicks OUTSIDE the dropdowns —
+    // and closes this panel immediately after every single selection. The
+    // button's own click handler already does the same thing for the same
+    // reason (see below).
+    e.stopPropagation();
     if (e.target.matches("input[type=checkbox]")) {
       if (e.target.checked) selectedSet.add(e.target.value);
       else selectedSet.delete(e.target.value);
