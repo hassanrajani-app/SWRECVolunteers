@@ -125,14 +125,15 @@ const el = {
   programsLockBtn: document.getElementById("programsLockBtn"),
   programsStateMessage: document.getElementById("programsStateMessage"),
   programsContent: document.getElementById("programsContent"),
+  programsSearchInput: document.getElementById("programsSearchInput"),
   programsInWorkGrid: document.getElementById("programsInWorkGrid"),
   programsInWorkCount: document.getElementById("programsInWorkCount"),
   programsInWorkEmpty: document.getElementById("programsInWorkEmpty"),
   programsInWorkTableWrap: document.getElementById("programsInWorkTableWrap"),
-  programsCompletedGrid: document.getElementById("programsCompletedGrid"),
-  programsCompletedCount: document.getElementById("programsCompletedCount"),
-  programsCompletedEmpty: document.getElementById("programsCompletedEmpty"),
-  programsCompletedTableWrap: document.getElementById("programsCompletedTableWrap"),
+  programsApprovedGrid: document.getElementById("programsApprovedGrid"),
+  programsApprovedCount: document.getElementById("programsApprovedCount"),
+  programsApprovedEmpty: document.getElementById("programsApprovedEmpty"),
+  programsApprovedTableWrap: document.getElementById("programsApprovedTableWrap"),
   programsRejectedGrid: document.getElementById("programsRejectedGrid"),
   programsRejectedCount: document.getElementById("programsRejectedCount"),
   programsRejectedEmpty: document.getElementById("programsRejectedEmpty"),
@@ -1139,26 +1140,44 @@ function statusSlug(status) {
   return status.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-// Completed and Rejected are their own sections; everything else (Pending
-// Review, Approved, Feedback Provided, or not yet triaged at all) is
-// "in the works" — matches the three-section layout on the page.
+// Approved and Rejected are their own sections; everything else (Pending
+// Review, Feedback Provided, or not yet triaged at all) is "in the works"
+// — matches the three-section layout on the page. "Completed" is folded
+// into the Approved bucket too: the board never actually flips a proposal
+// from Approved to Completed by hand (that was the whole reason this
+// section got renamed from "Completed" to "Approved"), so treating the two
+// the same way keeps any old rows already marked Completed from stranding
+// in "In the Works" looking like they still need action.
 function programBucket(status) {
-  if (status === "Completed") return "completed";
+  if (status === "Approved" || status === "Completed") return "approved";
   if (status === "Rejected") return "rejected";
   return "inWork";
 }
 
-// Soonest event first within a section; programs with no parseable date
-// sort to the end rather than the (misleading) top.
-function sortByEventDate(list) {
+// Soonest event first within a section (In the Works / Approved); pass
+// desc:true for most-recent-first (Rejected — a proposal rejected for an
+// event long past is less relevant than one that just got turned down).
+// Programs with no parseable date always sort to the end rather than the
+// (misleading) top, in either direction.
+function sortByEventDate(list, { desc = false } = {}) {
   return [...list].sort((a, b) => {
     const da = parseDob(a.eventDate);
     const db = parseDob(b.eventDate);
     if (!da && !db) return 0;
     if (!da) return 1;
     if (!db) return -1;
-    return da - db;
+    return desc ? db - da : da - db;
   });
+}
+
+// Search box filters by program name or the primary contact's name (there's
+// no RE Center field on this sheet, so those two are what the board can
+// reliably search by). Case-insensitive substring match, applied before
+// bucketing so counts/sections reflect only what's visible.
+function programMatchesSearch(p, query) {
+  if (!query) return true;
+  const haystack = ((p.eventName || "") + " " + (p.contactName || "")).toLowerCase();
+  return haystack.includes(query);
 }
 
 function programRowHtml(p) {
@@ -1198,20 +1217,29 @@ function programRowHtml(p) {
     </tr>`;
 }
 
+// Set by the search input's listener below; kept outside renderPrograms so
+// a re-render triggered by anything else (a status save, a background
+// refresh landing) doesn't clear whatever the board typed.
+let programSearchQuery = "";
+
 function renderPrograms() {
-  const buckets = { inWork: [], completed: [], rejected: [] };
-  programs.forEach((p) => buckets[programBucket(p.status)].push(p));
+  const query = programSearchQuery.trim().toLowerCase();
+  const visible = programs.filter((p) => programMatchesSearch(p, query));
+
+  const buckets = { inWork: [], approved: [], rejected: [] };
+  visible.forEach((p) => buckets[programBucket(p.status)].push(p));
 
   [
-    ["inWork", el.programsInWorkGrid, el.programsInWorkCount, el.programsInWorkEmpty, el.programsInWorkTableWrap],
-    ["completed", el.programsCompletedGrid, el.programsCompletedCount, el.programsCompletedEmpty, el.programsCompletedTableWrap],
-    ["rejected", el.programsRejectedGrid, el.programsRejectedCount, el.programsRejectedEmpty, el.programsRejectedTableWrap],
-  ].forEach(([key, tbody, countEl, emptyEl, wrapEl]) => {
-    const list = sortByEventDate(buckets[key]);
+    ["inWork", el.programsInWorkGrid, el.programsInWorkCount, el.programsInWorkEmpty, el.programsInWorkTableWrap, false, "Nothing in progress right now."],
+    ["approved", el.programsApprovedGrid, el.programsApprovedCount, el.programsApprovedEmpty, el.programsApprovedTableWrap, false, "No approved programs yet."],
+    ["rejected", el.programsRejectedGrid, el.programsRejectedCount, el.programsRejectedEmpty, el.programsRejectedTableWrap, true, "No rejected proposals."],
+  ].forEach(([key, tbody, countEl, emptyEl, wrapEl, desc, defaultEmptyText]) => {
+    const list = sortByEventDate(buckets[key], { desc });
     countEl.textContent = String(list.length);
     if (list.length === 0) {
       tbody.innerHTML = "";
       wrapEl.classList.add("hidden");
+      emptyEl.textContent = query ? "No matches." : defaultEmptyText;
       emptyEl.classList.remove("hidden");
     } else {
       emptyEl.classList.add("hidden");
@@ -1354,6 +1382,13 @@ el.programsContent.addEventListener("change", (e) => {
   if (!sel.matches("select[data-field]")) return;
   saveProgramField(sel.dataset.id, sel.dataset.field, sel.value, sel);
 });
+
+if (el.programsSearchInput) {
+  el.programsSearchInput.addEventListener("input", (e) => {
+    programSearchQuery = e.target.value;
+    renderPrograms();
+  });
+}
 
 // ===== Attendance Metrics module =====
 // Read-only board view of the "Attendance" sheet tab — cumulative
@@ -1978,6 +2013,10 @@ function enterDashboard() {
 function enterPrograms() {
   el.hubRoot.classList.add("hidden");
   el.programsRoot.classList.remove("hidden");
+  // Reset any leftover search text from a previous visit so the board
+  // isn't confused by a filtered view they didn't just type themselves.
+  programSearchQuery = "";
+  if (el.programsSearchInput) el.programsSearchInput.value = "";
   loadPrograms();
 }
 
