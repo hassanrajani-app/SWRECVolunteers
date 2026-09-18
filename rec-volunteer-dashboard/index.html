@@ -378,6 +378,16 @@
     <section id="programsStateMessage" class="state-message">Loading programs…</section>
 
     <div id="programsContent" class="hidden">
+      <div class="program-search-bar">
+        <input
+          type="search"
+          id="programsSearchInput"
+          class="program-search-input"
+          placeholder="Search by program name or principal name…"
+          autocomplete="off"
+        />
+      </div>
+
       <section class="program-section">
         <h2 class="program-section-title">
           <span class="program-section-dot program-section-dot-active"></span>
@@ -405,11 +415,11 @@
 
       <section class="program-section">
         <h2 class="program-section-title">
-          <span class="program-section-dot program-section-dot-completed"></span>
-          Completed
-          <span class="program-section-count" id="programsCompletedCount">0</span>
+          <span class="program-section-dot program-section-dot-approved"></span>
+          Approved
+          <span class="program-section-count" id="programsApprovedCount">0</span>
         </h2>
-        <div class="program-table-wrap hidden" id="programsCompletedTableWrap">
+        <div class="program-table-wrap hidden" id="programsApprovedTableWrap">
           <table class="program-table">
             <thead>
               <tr>
@@ -422,10 +432,10 @@
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody id="programsCompletedGrid"></tbody>
+            <tbody id="programsApprovedGrid"></tbody>
           </table>
         </div>
-        <p class="program-empty hidden" id="programsCompletedEmpty">No completed programs yet.</p>
+        <p class="program-empty hidden" id="programsApprovedEmpty">No approved programs yet.</p>
       </section>
 
       <section class="program-section">
@@ -520,7 +530,7 @@
       <section class="attendance-category" id="attendanceCategoryPrimary">
         <div class="attendance-category-header">
           <h2 class="program-section-title">
-            <span class="program-section-dot program-section-dot-completed"></span>
+            <span class="program-section-dot program-section-dot-approved"></span>
             Primary
             <span class="attendance-category-sub">Grades 1–6</span>
           </h2>
