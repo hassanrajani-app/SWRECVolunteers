@@ -1065,7 +1065,7 @@ body {
   flex-shrink: 0;
 }
 .program-section-dot-active { background: var(--blue); }
-.program-section-dot-completed { background: #2fa360; }
+.program-section-dot-approved { background: #2fa360; }
 .program-section-dot-rejected { background: #c0392b; }
 
 .program-section-count {
@@ -1083,6 +1083,28 @@ body {
   font-size: 14.5px;
   padding: 18px 4px;
   margin: 0;
+}
+
+/* Search bar above the three sections — filters by program/principal name
+   client-side, no server round trip. Sits inside #programsContent so it's
+   hidden along with everything else while the first load is in flight. */
+.program-search-bar {
+  margin-bottom: 24px;
+}
+.program-search-input {
+  width: 100%;
+  max-width: 420px;
+  padding: 10px 14px;
+  font-size: 14.5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--navy-dark);
+}
+.program-search-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 /* Table look mirrors .vol-table (same sticky navy header, row striping,
@@ -1113,7 +1135,7 @@ body {
   white-space: nowrap;
   z-index: 5;
 }
-#programsCompletedTableWrap .program-table thead th { background: #1f7a4d; }
+#programsApprovedTableWrap .program-table thead th { background: #1f7a4d; }
 #programsRejectedTableWrap .program-table thead th { background: #a02f2f; }
 
 .program-table tbody tr { border-bottom: 1px solid var(--border); }
