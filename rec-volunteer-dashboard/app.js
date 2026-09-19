@@ -156,6 +156,12 @@ const el = {
   attendanceOverallPrePrimary: document.getElementById("attendanceOverallPrePrimary"),
   attendanceOverallPrimary: document.getElementById("attendanceOverallPrimary"),
   attendanceOverallSecondary: document.getElementById("attendanceOverallSecondary"),
+  attendanceTrendOverlay: document.getElementById("attendanceTrendOverlay"),
+  closeAttendanceTrend: document.getElementById("closeAttendanceTrend"),
+  attendanceTrendTitle: document.getElementById("attendanceTrendTitle"),
+  attendanceTrendSubtitle: document.getElementById("attendanceTrendSubtitle"),
+  attendanceTrendChart: document.getElementById("attendanceTrendChart"),
+  attendanceTrendEmpty: document.getElementById("attendanceTrendEmpty"),
   hubStateMessage: document.getElementById("hubStateMessage"),
   moduleGrid: document.getElementById("moduleGrid"),
   moduleAdminBtn: document.getElementById("moduleAdminBtn"),
@@ -1406,33 +1412,27 @@ function attendanceLevel(pct) {
   return "low";
 }
 
-// Front shows the percentage (unchanged); back shows a headcount, flipped
-// to on click/tap/Enter — see the delegated listener in "Event wiring"
-// below. That count comes from Code.gs's `students` field: each
-// grade+section's own most recently reported roster size, summed across
-// every section in this category+center — a stable enrollment figure
-// (see buildAttendanceSummary's comment), not the cumulative
-// year-to-date `total` the percentage math uses.
+// Shows the percentage AND the enrolled headcount directly on the card —
+// no flip needed. `students` comes from Code.gs: each grade+section's own
+// most recently reported roster size, summed across every section in this
+// category+center — a stable enrollment figure (see buildAttendanceSummary's
+// comment), not the cumulative year-to-date `total` the percentage math
+// uses. Tapping/clicking the card now opens the trend popup (see
+// openAttendanceTrend below) instead of flipping; `data-key` is how the
+// delegated click listener finds this row again in the `attendance` array.
 function attendanceCardHtml(row) {
   const level = attendanceLevel(row.percent);
   const pctText = row.percent != null ? row.percent.toFixed(1) + "%" : "—";
   const studentsText = row.students > 0
-    ? row.students + (row.students === 1 ? " student" : " students")
+    ? row.students + (row.students === 1 ? " student" : " students") + " enrolled"
     : "No enrollment on file";
+  const key = row.category + "|" + row.center;
   return `
-    <div class="attendance-card attendance-card-${level}" tabindex="0" role="button" aria-label="${escapeAttr(row.center)}, ${pctText} attendance. Press to flip and see student count.">
-      <div class="attendance-card-inner">
-        <div class="attendance-card-face attendance-card-front">
-          <p class="attendance-card-center">${escapeHtml(row.center)}</p>
-          <p class="attendance-card-pct">${pctText}</p>
-          <p class="attendance-card-hint">Tap for student count</p>
-        </div>
-        <div class="attendance-card-face attendance-card-back">
-          <p class="attendance-card-center">${escapeHtml(row.center)}</p>
-          <p class="attendance-card-students">${studentsText}</p>
-          <p class="attendance-card-hint">Total enrolled</p>
-        </div>
-      </div>
+    <div class="attendance-card attendance-card-${level}" tabindex="0" role="button" data-key="${escapeAttr(key)}" aria-label="${escapeAttr(row.center)}, ${pctText} attendance, ${studentsText}. Press to see the attendance trend.">
+      <p class="attendance-card-center">${escapeHtml(row.center)}</p>
+      <p class="attendance-card-pct">${pctText}</p>
+      <p class="attendance-card-students">${studentsText}</p>
+      <p class="attendance-card-hint">Tap for trend</p>
     </div>`;
 }
 
@@ -1465,6 +1465,85 @@ function renderAttendance() {
   });
 
   el.attendanceAsOf.textContent = attendanceAsOf ? `Data through ${attendanceAsOf}` : "";
+}
+
+// Holds the currently-rendered Chart.js instance (if any) so it can be torn
+// down before drawing a new one — Chart.js throws if you reuse a canvas
+// that already has a live chart attached to it without destroying the old
+// one first, and the same canvas is reused for every card's popup.
+let attendanceTrendChartInstance = null;
+
+// Opens the trend popup for one attendance card and (re)draws its line
+// chart. `key` is "<category>|<center>" — the same composite key
+// buildAttendanceSummary groups by server-side, rendered onto each card as
+// data-key so the delegated click listener below can look the row back up.
+function openAttendanceTrend(key) {
+  const row = attendance.find((r) => r.category + "|" + r.center === key);
+  if (!row) return;
+
+  el.attendanceTrendTitle.textContent = row.center;
+  el.attendanceTrendSubtitle.textContent = row.category;
+
+  if (attendanceTrendChartInstance) {
+    attendanceTrendChartInstance.destroy();
+    attendanceTrendChartInstance = null;
+  }
+
+  const trend = Array.isArray(row.trend) ? row.trend : [];
+  if (trend.length === 0) {
+    el.attendanceTrendChart.classList.add("hidden");
+    el.attendanceTrendEmpty.textContent = "Not enough dated attendance data yet for a trend.";
+    el.attendanceTrendEmpty.classList.remove("hidden");
+  } else {
+    try {
+      el.attendanceTrendEmpty.classList.add("hidden");
+      el.attendanceTrendChart.classList.remove("hidden");
+      attendanceTrendChartInstance = new Chart(el.attendanceTrendChart, {
+        type: "line",
+        data: {
+          labels: trend.map((t) => t.label),
+          datasets: [{
+            label: "Attendance %",
+            data: trend.map((t) => t.percent),
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37, 99, 235, 0.12)",
+            tension: 0.25,
+            fill: true,
+            pointRadius: 4,
+            pointBackgroundColor: "#2563eb",
+            spanGaps: true,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => (ctx.parsed.y == null ? "No data" : ctx.parsed.y.toFixed(1) + "%"),
+              },
+            },
+          },
+        },
+      });
+    } catch (e) {
+      // Most likely Chart.js failed to load from the CDN — fail gracefully
+      // rather than leaving a blank canvas with no explanation.
+      el.attendanceTrendChart.classList.add("hidden");
+      el.attendanceTrendEmpty.textContent = "Couldn't load the trend chart. Please try again.";
+      el.attendanceTrendEmpty.classList.remove("hidden");
+    }
+  }
+
+  el.attendanceTrendOverlay.classList.remove("hidden");
+}
+
+function closeAttendanceTrend() {
+  el.attendanceTrendOverlay.classList.add("hidden");
 }
 
 function attendanceCacheKeyFor(user) {
@@ -1998,6 +2077,7 @@ function showHub() {
   el.attendanceRoot.classList.add("hidden");
   el.adminRoot.classList.add("hidden");
   el.pmpRoot.classList.add("hidden");
+  closeAttendanceTrend();
   el.hubRoot.classList.remove("hidden");
 }
 
@@ -2083,26 +2163,39 @@ if (el.attendanceRefreshBtn) {
 if (el.attendanceLockBtn) {
   el.attendanceLockBtn.addEventListener("click", () => auth.signOut());
 }
-// Flip-to-reveal-headcount on the attendance cards. Delegated onto each
-// category grid (not onto individual cards) since renderAttendance()
-// replaces the grid's innerHTML wholesale on every load/refresh — a
-// listener on the cards themselves would be destroyed and need
-// re-attaching every time; one delegated listener on the stable grid
-// container survives any number of re-renders.
+// Tap-to-see-trend on the attendance cards. Delegated onto each category
+// grid (not onto individual cards) since renderAttendance() replaces the
+// grid's innerHTML wholesale on every load/refresh — a listener on the
+// cards themselves would be destroyed and need re-attaching every time;
+// one delegated listener on the stable grid container survives any number
+// of re-renders.
 ATTENDANCE_CATEGORIES.forEach(({ grid }) => {
   const gridEl = document.getElementById(grid);
   if (!gridEl) return;
   gridEl.addEventListener("click", (e) => {
     const card = e.target.closest(".attendance-card");
-    if (card) card.classList.toggle("flipped");
+    if (card) openAttendanceTrend(card.dataset.key);
   });
   gridEl.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
     const card = e.target.closest(".attendance-card");
     if (!card) return;
     e.preventDefault();
-    card.classList.toggle("flipped");
+    openAttendanceTrend(card.dataset.key);
   });
+});
+if (el.closeAttendanceTrend) {
+  el.closeAttendanceTrend.addEventListener("click", closeAttendanceTrend);
+}
+if (el.attendanceTrendOverlay) {
+  el.attendanceTrendOverlay.addEventListener("click", (e) => {
+    if (e.target === el.attendanceTrendOverlay) closeAttendanceTrend();
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && el.attendanceTrendOverlay && !el.attendanceTrendOverlay.classList.contains("hidden")) {
+    closeAttendanceTrend();
+  }
 });
 if (el.moduleAdminBtn) {
   el.moduleAdminBtn.addEventListener("click", enterAdmin);
@@ -2154,6 +2247,7 @@ auth.onAuthStateChanged((user) => {
     el.attendanceRoot.classList.add("hidden");
     el.adminRoot.classList.add("hidden");
     el.pmpRoot.classList.add("hidden");
+    closeAttendanceTrend();
     el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
