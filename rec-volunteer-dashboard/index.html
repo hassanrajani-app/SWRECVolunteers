@@ -560,6 +560,24 @@
       </section>
     </div>
 
+    <!-- Trend popup: opens on tapping any attendance card, showing that
+         one center + grade band's attendance % for every class date on
+         file, most recent last. Chart.js renders into the canvas; see
+         app.js's openAttendanceTrend(). -->
+    <div id="attendanceTrendOverlay" class="overlay hidden">
+      <div class="detail-card trend-card">
+        <button id="closeAttendanceTrend" class="close-btn" aria-label="Close">✕</button>
+        <div class="trend-header">
+          <h2 id="attendanceTrendTitle" class="trend-title"></h2>
+          <p id="attendanceTrendSubtitle" class="trend-subtitle"></p>
+        </div>
+        <div class="trend-chart-wrap">
+          <canvas id="attendanceTrendChart"></canvas>
+        </div>
+        <p id="attendanceTrendEmpty" class="program-empty hidden">Not enough dated attendance data yet for a trend.</p>
+      </div>
+    </div>
+
   </main>
 
   </div><!-- /#attendanceRoot -->
@@ -661,6 +679,7 @@
   </div><!-- /#adminRoot -->
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="app.js"></script>
