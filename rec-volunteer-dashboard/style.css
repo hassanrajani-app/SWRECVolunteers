@@ -26,72 +26,103 @@ body {
 
 .hidden { display: none !important; }
 
-/* ===== Password gate ===== */
+/* ===== Password gate: split-screen sign-in ===== */
 .gate-overlay {
   position: fixed;
   inset: 0;
-  background: var(--navy);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
   z-index: 1000;
 }
 
-/* Site wordmark, sits on the navy background above the sign-in card
-   itself — not part of .gate-card, so it isn't clipped by the card's
-   white background or affected by its box-shadow. */
+/* Left panel: brand identity only, no form controls. Fixed-width on wide
+   screens; hidden below 760px so the form panel gets the full (narrow)
+   viewport instead of squeezing two columns into a phone screen. */
+.gate-brand-panel {
+  flex: 0 0 42%;
+  min-width: 320px;
+  background: var(--navy-dark);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+}
+@media (max-width: 760px) {
+  .gate-brand-panel { display: none; }
+}
+
+/* Decorative only (aria-hidden in the markup) — faint concentric rings,
+   not a literal logo since there isn't one yet. */
+.gate-pattern {
+  position: absolute;
+  top: -60px;
+  right: -70px;
+  width: 320px;
+  height: 320px;
+  opacity: 0.15;
+}
+.gate-pattern circle {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 2;
+}
+
 .gate-wordmark {
-  margin: 0 0 20px;
-  font-size: 30px;
+  margin: 0 0 10px;
+  font-size: 40px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 0.01em;
-  text-align: center;
+  position: relative;
+}
+.gate-tagline {
+  margin: 0;
+  font-size: 15px;
+  color: var(--blue-light);
+  line-height: 1.5;
+  max-width: 320px;
+  position: relative;
 }
 
-.gate-card {
+.gate-panel-form {
+  flex: 1 1 auto;
   background: var(--card);
-  border-radius: 16px;
-  width: 100%;
-  max-width: 360px;
-  padding: 36px 32px;
-  text-align: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  justify-content: center;
+  align-items: stretch;
+  padding: 48px;
+  box-sizing: border-box;
+}
+.gate-panel-form > * {
+  width: 100%;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.gate-mark {
-  width: 52px;
-  height: 52px;
-  font-size: 18px;
-  margin-bottom: 6px;
-}
-
-.gate-card h1 {
-  font-size: 20px;
-  margin: 0;
+.gate-panel-form h1 {
+  font-size: 24px;
+  margin: 0 0 4px;
   color: var(--navy-dark);
+  text-align: left;
 }
 
 .gate-subtitle {
-  font-size: 14.5px;
+  font-size: 14px;
   color: var(--text-muted);
-  margin: 0 0 14px;
+  margin: 0 0 22px;
+  text-align: left;
 }
 
 #gateEmail,
 #gatePassword {
-  width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 15.5px;
-  text-align: center;
+  text-align: left;
   margin-bottom: 12px;
   box-sizing: border-box;
   font-family: inherit;
@@ -100,8 +131,9 @@ body {
 #gatePassword:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 
 .forgot-password-link {
-  align-self: flex-end;
-  margin: -6px 0 14px;
+  display: block;
+  text-align: right;
+  margin: -6px 0 18px auto;
   border: none;
   background: none;
   color: var(--blue);
@@ -112,23 +144,26 @@ body {
 .forgot-password-link:hover { text-decoration: underline; }
 
 .gate-submit {
-  width: 100%;
-  padding: 10px 16px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  font-size: 15px;
 }
 
 .gate-error {
   color: #b3392c;
   font-size: 14px;
   margin: 12px 0 0;
+  text-align: left;
 }
 
 .gate-info {
   color: #1f7a4d;
   font-size: 14px;
   margin: 12px 0 0;
+  text-align: left;
 }
 
-.gate-card.shake { animation: gate-shake 0.3s; }
+.gate-panel-form.shake { animation: gate-shake 0.3s; }
 @keyframes gate-shake {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
@@ -1280,15 +1315,15 @@ body {
   align-items: center;
   text-align: center;
   gap: 2px;
-  padding: 22px 16px;
+  padding: 14px 16px;
   margin-bottom: 20px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
 }
 .attendance-total-value {
-  font-size: 40px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--navy-dark);
   line-height: 1;
 }
