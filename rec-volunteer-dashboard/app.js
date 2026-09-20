@@ -146,6 +146,7 @@ const el = {
   attendanceLockBtn: document.getElementById("attendanceLockBtn"),
   attendanceStateMessage: document.getElementById("attendanceStateMessage"),
   attendanceContent: document.getElementById("attendanceContent"),
+  attendanceTotalValue: document.getElementById("attendanceTotalValue"),
   attendanceAsOf: document.getElementById("attendanceAsOf"),
   attendanceGridPrePrimary: document.getElementById("attendanceGridPrePrimary"),
   attendanceGridPrimary: document.getElementById("attendanceGridPrimary"),
@@ -1437,6 +1438,15 @@ function attendanceCardHtml(row) {
 }
 
 function renderAttendance() {
+  // Grand total across every band + center. Each `students` figure is
+  // already a per-grade+section latest roster count (see the comment on
+  // buildAttendanceSummary in Code.gs), and every grade+section belongs to
+  // exactly one category and one center — so summing it across the whole
+  // `attendance` array double-counts nobody; this is the closest figure
+  // the data supports to a unique enrolled headcount sitewide.
+  const totalStudents = attendance.reduce((sum, r) => sum + (r.students || 0), 0);
+  el.attendanceTotalValue.textContent = totalStudents.toLocaleString();
+
   ATTENDANCE_CATEGORIES.forEach(({ key, grid, empty, overall }) => {
     const rows = attendance.filter((r) => r.category === key);
     // Lowest attendance first — surfaces the centers that most need
