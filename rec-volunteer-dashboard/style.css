@@ -32,10 +32,23 @@ body {
   inset: 0;
   background: var(--navy);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 20px;
   z-index: 1000;
+}
+
+/* Site wordmark, sits on the navy background above the sign-in card
+   itself — not part of .gate-card, so it isn't clipped by the card's
+   white background or affected by its box-shadow. */
+.gate-wordmark {
+  margin: 0 0 20px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+  text-align: center;
 }
 
 .gate-card {
@@ -1257,6 +1270,35 @@ body {
 }
 
 /* ===== Attendance Metrics module ===== */
+
+/* Sitewide total, shown above everything else — see the comment on
+   renderAttendance() in app.js for why summing every card's `students`
+   figure is a safe unique-headcount total (no double counting). */
+.attendance-total-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  padding: 22px 16px;
+  margin-bottom: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.attendance-total-value {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--navy-dark);
+  line-height: 1;
+}
+.attendance-total-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
 
 .attendance-meta-row {
   display: flex;
