@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ITREB Southwest</title>
+<title>ShowMe – ITREB Southwest</title>
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -15,6 +15,7 @@
        until auth resolves — see the note in app.js for how this is wired
        to server-side filtering in Code.gs. -->
   <div id="passwordGate" class="gate-overlay">
+    <p class="gate-wordmark">ShowMe</p>
     <form id="gateForm" class="gate-card">
       <span class="brand-mark gate-mark">SW</span>
       <h1>ITREB Southwest</h1>
@@ -102,6 +103,13 @@
         </div>
         <h2 class="module-title">Admin</h2>
       </button>
+
+      <a class="module-card module-navy" href="https://www.southwestportal.com/admin/login" target="_blank" rel="noopener">
+        <div class="module-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10 12 4l8 6"/><path d="M5 10v9"/><path d="M9 10v9"/><path d="M15 10v9"/><path d="M19 10v9"/><path d="M3.5 19h17"/></svg>
+        </div>
+        <h2 class="module-title">SW Council Portal</h2>
+      </a>
     </div>
   </main>
 
@@ -502,6 +510,11 @@
     <section id="attendanceStateMessage" class="state-message">Loading attendance…</section>
 
     <div id="attendanceContent" class="hidden">
+      <div class="attendance-total-banner">
+        <span id="attendanceTotalValue" class="attendance-total-value">—</span>
+        <span class="attendance-total-label">Total Students Enrolled</span>
+      </div>
+
       <div class="attendance-meta-row">
         <span id="attendanceAsOf" class="attendance-as-of"></span>
         <div class="attendance-legend">
