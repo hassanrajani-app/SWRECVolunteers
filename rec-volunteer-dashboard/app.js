@@ -1483,6 +1483,46 @@ function renderAttendance() {
 // one first, and the same canvas is reused for every card's popup.
 let attendanceTrendChartInstance = null;
 
+// Percent labels drawn directly above every point, always on — the board
+// shouldn't have to hover/tap a dot to find out what it says. A local
+// plugin (passed via the chart's own `plugins` array below, not
+// Chart.register'd globally) so it only ever applies to this one chart.
+const attendanceTrendDataLabelsPlugin = {
+  id: "attendanceTrendDataLabels",
+  afterDatasetsDraw(chart) {
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data) return;
+    const values = chart.data.datasets[0].data;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.font = "600 12px sans-serif";
+    ctx.fillStyle = "#182b47";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    meta.data.forEach((point, i) => {
+      const value = values[i];
+      if (value == null) return;
+      ctx.fillText(value.toFixed(1) + "%", point.x, point.y - 8);
+    });
+    ctx.restore();
+  },
+};
+
+// The y-axis floor adapts per chart instead of always starting at 0: most
+// centers sit in the 70-100% range, so a fixed 0-100 axis crams every real
+// data point into the top sliver and wastes the rest on percentages no
+// center is ever near. Floors to the nearest 10 below the chart's own
+// lowest point (with a little headroom so that point isn't glued to the
+// bottom edge) — a center having a genuinely bad week still shows it in
+// full, it just doesn't force every OTHER center's chart to also start at 0.
+function computeTrendYAxisMin(trend) {
+  const values = trend.map((t) => t.percent).filter((v) => v != null);
+  if (values.length === 0) return 0;
+  const lowest = Math.min(...values);
+  const floor = Math.floor((lowest - 10) / 10) * 10;
+  return Math.max(0, floor);
+}
+
 // Opens the trend popup for one attendance card and (re)draws its line
 // chart. `key` is "<category>|<center>" — the same composite key
 // buildAttendanceSummary groups by server-side, rendered onto each card as
@@ -1517,9 +1557,10 @@ function openAttendanceTrend(key) {
             data: trend.map((t) => t.percent),
             borderColor: "#2563eb",
             backgroundColor: "rgba(37, 99, 235, 0.12)",
+            borderWidth: 3,
             tension: 0.25,
             fill: true,
-            pointRadius: 4,
+            pointRadius: 5,
             pointBackgroundColor: "#2563eb",
             spanGaps: true,
           }],
@@ -1527,8 +1568,17 @@ function openAttendanceTrend(key) {
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          // Extra headroom above the plot area so a data label sitting
+          // above a point near 100% never gets clipped by the canvas edge.
+          layout: { padding: { top: 24 } },
           scales: {
-            y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } },
+            x: { grid: { display: false } },
+            y: {
+              min: computeTrendYAxisMin(trend),
+              max: 100,
+              ticks: { stepSize: 10, callback: (v) => v + "%" },
+              grid: { color: "rgba(24, 43, 71, 0.08)" },
+            },
           },
           plugins: {
             legend: { display: false },
@@ -1539,6 +1589,7 @@ function openAttendanceTrend(key) {
             },
           },
         },
+        plugins: [attendanceTrendDataLabelsPlugin],
       });
     } catch (e) {
       // Most likely Chart.js failed to load from the CDN — fail gracefully
