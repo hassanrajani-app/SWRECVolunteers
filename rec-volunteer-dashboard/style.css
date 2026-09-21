@@ -1450,8 +1450,13 @@ body {
 }
 
 /* ===== Attendance trend popup ===== */
+/* Noticeably larger than the base .detail-card (which caps out at 580px/
+   90vh) — this popup's whole point is the chart, so it gets most of the
+   viewport instead of sitting in a small fixed box. */
 .trend-card {
-  max-width: 640px;
+  max-width: 90vw;
+  width: 90vw;
+  max-height: 90vh;
 }
 .trend-header {
   text-align: center;
@@ -1470,11 +1475,11 @@ body {
 }
 .trend-chart-wrap {
   position: relative;
-  height: 320px;
+  height: 62vh;
   width: 100%;
 }
 @media (max-width: 480px) {
-  .trend-chart-wrap { height: 260px; }
+  .trend-chart-wrap { height: 50vh; }
 }
 
 /* ===== Admin module ===== */
