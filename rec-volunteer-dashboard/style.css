@@ -259,12 +259,26 @@ body {
    description text. Deliberately smaller/denser than the original
    icon-on-top cards (see git history if that's ever wanted back). */
 .module-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
 }
-@media (max-width: 640px) {
-  .module-grid { grid-template-columns: 1fr; }
+
+.module-section-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.module-section-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .module-card {
