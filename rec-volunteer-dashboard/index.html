@@ -56,68 +56,89 @@
   <main class="container">
     <section id="hubStateMessage" class="state-message hidden"></section>
     <div class="module-grid hidden" id="moduleGrid">
-      <button type="button" class="module-card module-navy hidden" id="moduleAttendanceBtn" data-module="Attendance">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="m8 14.5 2.2 2.2L15.5 12" /></svg>
-        </div>
-        <h2 class="module-title">Attendance Metrics</h2>
-      </button>
 
-      <button type="button" class="module-card module-navy hidden" id="moduleVolunteerDashboard" data-module="Volunteer">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 5 18.5V20"/><circle cx="9.5" cy="8.5" r="3.5"/><path d="M19.5 20v-1.3a3.2 3.2 0 0 0-2.2-3"/><path d="M15.2 5.2a3.2 3.2 0 0 1 0 6.1"/></svg>
-        </div>
-        <h2 class="module-title">Volunteer Dashboard</h2>
-      </button>
+      <div class="module-section">
+        <h3 class="module-section-title">Dashboards</h3>
+        <div class="module-section-tiles">
+          <button type="button" class="module-card module-navy hidden" id="moduleAttendanceBtn" data-module="Attendance">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="m8 14.5 2.2 2.2L15.5 12" /></svg>
+            </div>
+            <h2 class="module-title">Attendance Metrics</h2>
+          </button>
 
-      <button type="button" class="module-card module-brown hidden" id="moduleProgramsBtn" data-module="Programs">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M8.5 12.5h7"/><path d="M8.5 15.5h7"/><path d="M8.5 18.5h4"/></svg>
-        </div>
-        <h2 class="module-title">ITREB Programs</h2>
-      </button>
+          <button type="button" class="module-card module-navy hidden" id="moduleVolunteerDashboard" data-module="Volunteer">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 5 18.5V20"/><circle cx="9.5" cy="8.5" r="3.5"/><path d="M19.5 20v-1.3a3.2 3.2 0 0 0-2.2-3"/><path d="M15.2 5.2a3.2 3.2 0 0 1 0 6.1"/></svg>
+            </div>
+            <h2 class="module-title">Volunteer Dashboard</h2>
+          </button>
 
-      <a class="module-card module-gender" href="https://nationalusarec.org/dashboard" target="_blank" rel="noopener">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+          <button type="button" class="module-card module-brown hidden" id="moduleProgramsBtn" data-module="Programs">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M8.5 12.5h7"/><path d="M8.5 15.5h7"/><path d="M8.5 18.5h4"/></svg>
+            </div>
+            <h2 class="module-title">ITREB Programs</h2>
+          </button>
         </div>
-        <h2 class="module-title">Safeguarding Portal</h2>
-      </a>
+      </div>
 
-      <a class="module-card module-blue" href="https://southwestrec.netlify.app/" target="_blank" rel="noopener">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 5 6 4 11-1 1.5-2.5 2.5-4 2.5s-3-1-4-2.5C7 8 9 4 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M9 14l-2 2.5c-.4.5-.6 1.1-.6 1.7V20h1.8c.6 0 1.2-.2 1.7-.6L11 18"/><path d="M15 14l2 2.5c.4.5.6 1.1.6 1.7V20h-1.8c-.6 0-1.2-.2-1.7-.6L13 18"/></svg>
-        </div>
-        <h2 class="module-title">RE Launchpad</h2>
-      </a>
+      <div class="module-section">
+        <h3 class="module-section-title">Facilities &amp; Safety</h3>
+        <div class="module-section-tiles">
+          <a class="module-card module-gender" href="https://nationalusarec.org/dashboard" target="_blank" rel="noopener">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+            <h2 class="module-title">Safeguarding Portal</h2>
+          </a>
 
-      <button type="button" class="module-card module-blue hidden" id="modulePmpBtn" data-module="PMP">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6.5 17.5 10 8 19.5 4.5 16 14 6.5Z"/><path d="M12.5 8 16 11.5"/><path d="M3 21l1.5-4L8 19.5 3 21Z"/></svg>
-        </div>
-        <h2 class="module-title">PMP Service Maintenance</h2>
-      </button>
+          <button type="button" class="module-card module-blue hidden" id="modulePmpBtn" data-module="PMP">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6.5 17.5 10 8 19.5 4.5 16 14 6.5Z"/><path d="M12.5 8 16 11.5"/><path d="M3 21l1.5-4L8 19.5 3 21Z"/></svg>
+            </div>
+            <h2 class="module-title">PMP Service Maintenance</h2>
+          </button>
 
-      <button type="button" class="module-card module-brown hidden" id="moduleAdminBtn">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5.5 6.5v5c0 5 2.8 7.7 6.5 9 3.7-1.3 6.5-4 6.5-9v-5L12 3.5Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 16c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg>
-        </div>
-        <h2 class="module-title">Admin</h2>
-      </button>
+          <a class="module-card module-navy" href="https://www.southwestportal.com/admin/login" target="_blank" rel="noopener">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10 12 4l8 6"/><path d="M5 10v9"/><path d="M9 10v9"/><path d="M15 10v9"/><path d="M19 10v9"/><path d="M3.5 19h17"/></svg>
+            </div>
+            <h2 class="module-title">SW Council Portal</h2>
+          </a>
 
-      <a class="module-card module-navy" href="https://www.southwestportal.com/admin/login" target="_blank" rel="noopener">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10 12 4l8 6"/><path d="M5 10v9"/><path d="M9 10v9"/><path d="M15 10v9"/><path d="M19 10v9"/><path d="M3.5 19h17"/></svg>
+          <a class="module-card module-gender" href="https://incidentreport.xyz/report_incident.php" target="_blank" rel="noopener">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 4 7v6c0 4.5 3.3 7 8 7.5 4.7-.5 8-3 8-7.5V7l-8-3.5Z"/><path d="M12 8.5v4.5"/><circle cx="12" cy="16" r="0.9" fill="currentColor" stroke="none"/></svg>
+            </div>
+            <h2 class="module-title">Report Incident</h2>
+          </a>
         </div>
-        <h2 class="module-title">SW Council Portal</h2>
-      </a>
+      </div>
 
-      <a class="module-card module-gender" href="https://incidentreport.xyz/report_incident.php" target="_blank" rel="noopener">
-        <div class="module-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 4 7v6c0 4.5 3.3 7 8 7.5 4.7-.5 8-3 8-7.5V7l-8-3.5Z"/><path d="M12 8.5v4.5"/><circle cx="12" cy="16" r="0.9" fill="currentColor" stroke="none"/></svg>
+      <div class="module-section">
+        <h3 class="module-section-title">External Links</h3>
+        <div class="module-section-tiles">
+          <a class="module-card module-blue" href="https://southwestrec.netlify.app/" target="_blank" rel="noopener">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 5 6 4 11-1 1.5-2.5 2.5-4 2.5s-3-1-4-2.5C7 8 9 4 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M9 14l-2 2.5c-.4.5-.6 1.1-.6 1.7V20h1.8c.6 0 1.2-.2 1.7-.6L11 18"/><path d="M15 14l2 2.5c.4.5.6 1.1.6 1.7V20h-1.8c-.6 0-1.2-.2-1.7-.6L13 18"/></svg>
+            </div>
+            <h2 class="module-title">RE Launchpad</h2>
+          </a>
         </div>
-        <h2 class="module-title">Report Incident</h2>
-      </a>
+      </div>
+
+      <div class="module-section">
+        <h3 class="module-section-title">Admin</h3>
+        <div class="module-section-tiles">
+          <button type="button" class="module-card module-brown hidden" id="moduleAdminBtn">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5.5 6.5v5c0 5 2.8 7.7 6.5 9 3.7-1.3 6.5-4 6.5-9v-5L12 3.5Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 16c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg>
+            </div>
+            <h2 class="module-title">Admin</h2>
+          </button>
+        </div>
+      </div>
     </div>
   </main>
 
