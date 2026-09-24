@@ -530,13 +530,25 @@ async function loadMe() {
 }
 
 // Shows/hides each hub tile based on meModules/meIsAdmin. Tiles with no
-// data-module attribute (the two external links) are always shown — this
-// only governs the modules the Admin screen actually manages.
+// data-module attribute (the external links) are always shown — this only
+// governs the modules the Admin screen actually manages.
+//
+// Hub tiles are grouped into labeled .module-section blocks (Dashboards,
+// Facilities & Safety, External Links, Admin). A section made up entirely
+// of gated tiles — Dashboards for someone with none of Attendance/
+// Volunteer/Programs, or Admin for a non-admin — would otherwise show its
+// heading with nothing underneath, so after the per-tile pass above, hide
+// any section that has no visible .module-card left in it.
 function applyModuleVisibility() {
   document.querySelectorAll("#moduleGrid [data-module]").forEach((tile) => {
     tile.classList.toggle("hidden", meModules.indexOf(tile.dataset.module) === -1);
   });
   if (el.moduleAdminBtn) el.moduleAdminBtn.classList.toggle("hidden", !meIsAdmin);
+
+  document.querySelectorAll("#moduleGrid .module-section").forEach((section) => {
+    const hasVisibleTile = !!section.querySelector(".module-card:not(.hidden)");
+    section.classList.toggle("hidden", !hasVisibleTile);
+  });
 }
 
 async function loadVolunteers({ forceFresh = false } = {}) {
