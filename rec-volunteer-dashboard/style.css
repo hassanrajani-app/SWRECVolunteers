@@ -255,108 +255,79 @@ body {
 .back-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* ===== Module hub =====
-   Compact row layout — icon and name side by side in one line, no
-   description text. Deliberately smaller/denser than the original
-   icon-on-top cards (see git history if that's ever wanted back). */
+   One clean card: small gray section labels, then plain rows of icon +
+   name in two columns with hairline dividers — no per-item boxes. Modules
+   (buttons/links to other pages) and Guidance & Policies (links to Google
+   Docs) share the exact same row style. */
 .module-grid {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px 20px 18px;
 }
 
 .module-section-title {
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0;
+  padding: 18px 0 6px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--navy-dark);
+  color: #8a97a8;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.06em;
 }
 
-.module-section-tiles {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-/* Policies & Guidelines: dashed-outline tiles so plain document links read
-   as reference material, visibly different from the solid module cards. */
+.module-section-tiles,
 .policy-tiles {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.policy-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 14px;
-  background: var(--card);
-  border: 1px dashed #c7cedb;
-  border-radius: 10px;
-  color: var(--navy-dark);
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-.policy-tile svg {
-  width: 20px;
-  height: 20px;
-  color: #5a6b85;
-}
-.policy-tile:hover {
-  border-style: solid;
-  border-color: var(--navy);
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: 24px;
 }
 @media (max-width: 560px) {
-  .policy-tiles,
-  .module-section-tiles { grid-template-columns: repeat(2, 1fr); }
+  .module-section-tiles,
+  .policy-tiles { grid-template-columns: 1fr; }
 }
 
-/* Same grid-of-tiles layout as the policy tiles above (icon on top, title
-   below), but with a solid border and tinted icon chip so modules still
-   read as apps rather than documents. */
-.module-card {
+.module-card,
+.policy-tile {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #eef0f3;
+  border-radius: 0;
+  padding: 10px 0;
   text-align: left;
   text-decoration: none;
-  color: inherit;
+  color: var(--navy-dark);
   font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(34, 58, 94, 0.05);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  position: relative;
+  box-shadow: none;
 }
-.module-card:hover:not(.module-disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(34, 58, 94, 0.13);
+.module-card:hover:not(.module-disabled),
+.policy-tile:hover {
+  color: var(--navy);
+  background: #f6f7f9;
 }
 
 .module-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
-  background: var(--blue-light);
-  color: var(--navy);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: var(--navy);
 }
-.module-icon svg { width: 19px; height: 19px; }
-.module-brown .module-icon { background: #ecdfd0; color: var(--brown); }
-.module-gender .module-icon { background: #f1e6da; color: var(--brown-light); }
+.module-icon svg,
+.policy-tile svg { width: 18px; height: 18px; flex-shrink: 0; }
+.policy-tile svg { color: #5a6b85; }
+.module-brown .module-icon { color: var(--brown); }
+.module-gender .module-icon { color: var(--brown-light); }
 
 /* ===== PMP Service Maintenance info page =====
    A single centered card in the page body — no data to load, no table,
@@ -398,10 +369,10 @@ body {
 
 .module-title {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--navy-dark);
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
 .module-disabled {
@@ -1544,34 +1515,77 @@ body {
   .trend-chart-wrap { height: 50vh; }
 }
 
-/* ===== Admin module ===== */
+/* ===== Admin module =====
+   Role-based: three roles, each person tagged with centers + grade levels
+   (Principals only). One reusable form (.admin-form) is used both for
+   adding people and for editing an existing person inline. */
 
-.admin-add-card {
+.admin-intro-card,
+.admin-add-card,
+.admin-people-section {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px 22px;
-  margin-bottom: 28px;
+  margin-bottom: 22px;
 }
 
-.admin-add-title {
+.admin-add-title,
+.admin-people-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--navy-dark);
   margin: 0 0 4px;
+}
+.admin-people-title span {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-left: 6px;
 }
 
 .admin-add-hint {
   font-size: 13px;
   color: var(--text-muted);
   margin: 0 0 16px;
+  line-height: 1.5;
 }
 
-.admin-add-grid {
+/* --- role legend --- */
+.admin-role-legend {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.admin-role-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.admin-role-box p { margin: 8px 0 0; }
+
+.role-pill {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.role-admin { background: #f1e6da; color: var(--brown); }
+.role-board { background: #dfe9f6; color: var(--navy); }
+.role-principal { background: #e4f1e6; color: #2b6a3a; }
+
+/* --- form --- */
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .admin-field {
@@ -1582,7 +1596,11 @@ body {
   font-weight: 600;
   color: var(--text-muted);
 }
-.admin-field input {
+.admin-field em { font-weight: 400; font-style: normal; }
+.admin-field input,
+.admin-field textarea,
+.admin-search-input,
+.admin-role-filter {
   font-family: inherit;
   font-size: 14px;
   font-weight: 400;
@@ -1593,173 +1611,150 @@ body {
   background: var(--card);
   box-sizing: border-box;
 }
-.admin-field input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+.admin-field textarea { resize: vertical; min-height: 56px; }
+.admin-field input:focus,
+.admin-field textarea:focus,
+.admin-search-input:focus,
+.admin-role-filter:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 
-.admin-add-toggles {
+.admin-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.admin-fieldset legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.admin-role-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.admin-role-choice {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 16px;
-  border-top: 1px solid var(--cream);
-  padding-top: 14px;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  cursor: pointer;
+  background: var(--card);
+}
+.admin-role-choice input { margin-top: 3px; accent-color: var(--navy); cursor: pointer; }
+.admin-role-choice-body { display: flex; flex-direction: column; gap: 3px; }
+.admin-role-choice-body strong { font-size: 14px; color: var(--navy-dark); }
+.admin-role-choice-body small { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.admin-role-choice.selected { border-color: var(--navy); background: #f4f7fc; box-shadow: 0 0 0 1px var(--navy); }
+
+.admin-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f8f9fc;
+  border: 1px dashed #c7cedb;
 }
 
 .admin-checkbox {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 13.5px;
   color: var(--text);
   cursor: pointer;
-  white-space: nowrap;
 }
-.admin-checkbox input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--navy); }
+.admin-checkbox input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--navy); }
+.admin-checkbox small { color: var(--text-muted); }
 
-.admin-checkbox-divider {
-  padding-left: 18px;
-  border-left: 1px solid var(--border);
+.admin-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
-
-.admin-table-wrap {
-  background: var(--card);
+.admin-chip-grid.disabled { opacity: 0.45; pointer-events: none; }
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: auto;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  background: var(--card);
+  cursor: pointer;
 }
+.admin-chip input { accent-color: var(--navy); cursor: pointer; }
+.admin-chip:has(input:checked) { border-color: var(--navy); background: #eef3fb; font-weight: 600; }
 
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
+.admin-msg-ok { font-size: 13px; color: #2b6a3a; margin: 0; }
 
-.admin-table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--navy);
-  color: white;
-  text-align: left;
-  padding: 11px 12px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  z-index: 5;
+/* --- people list --- */
+.admin-people-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
 }
+.admin-people-toolbar .admin-people-title { margin: 0; margin-right: auto; }
+.admin-search-input { min-width: 240px; }
 
-.admin-table tbody tr { border-bottom: 1px solid var(--border); }
-.admin-table tbody tr:nth-child(even) { background: #fafbfd; }
-
-.admin-table td {
-  padding: 10px 12px;
-  vertical-align: middle;
+.admin-people-list { display: flex; flex-direction: column; }
+.admin-person {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
 }
-
-.admin-cell-email {
-  font-weight: 600;
-  color: var(--navy-dark);
-  min-width: 170px;
-  word-break: break-all;
+.admin-person:first-child { border-top: none; }
+.admin-person-main {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) auto minmax(180px, 2fr) auto;
+  gap: 14px;
+  align-items: center;
 }
-
+.admin-person-who { display: flex; flex-direction: column; min-width: 0; }
+.admin-person-name { font-weight: 600; color: var(--navy-dark); font-size: 14px; }
+.admin-person-email { font-size: 12.5px; color: var(--text-muted); overflow-wrap: anywhere; }
 .admin-you-tag {
-  display: inline-block;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--blue);
-  background: var(--blue-light);
-  padding: 1px 6px;
+  background: var(--cream);
+  color: var(--brown);
+  padding: 1px 7px;
   border-radius: 999px;
-  vertical-align: middle;
+  margin-left: 6px;
 }
+.admin-person-scope { font-size: 13px; color: var(--text); line-height: 1.4; }
+.admin-person-scope small { display: block; color: var(--text-muted); font-size: 12px; }
+.admin-person-warn .admin-person-scope { color: #a02f2f; font-weight: 600; }
 
-.admin-table input[type="text"] {
-  font-family: inherit;
-  font-size: 13.5px;
-  color: var(--text);
-  padding: 6px 8px;
+.admin-person-editor {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #fbfcfe;
   border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--card);
-  width: 100%;
-  min-width: 110px;
-  box-sizing: border-box;
 }
-.admin-table input[type="text"]:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
-.admin-table input:disabled { opacity: 0.55; }
-
-.admin-cell-modules {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 130px;
-}
-.admin-cell-modules .admin-checkbox { font-size: 12.5px; }
-
-.admin-cell-actions { min-width: 130px; }
-
-.admin-save-btn, .admin-remove-btn {
-  font-size: 12.5px;
-  padding: 6px 12px;
-}
-.admin-remove-btn { color: #a02f2f; border-color: #f0aca4; }
+.admin-remove-btn { color: #a02f2f; border-color: #f0aca4; margin-left: auto; }
 .admin-remove-btn:hover { background: #fdecea; color: #a02f2f; }
+.admin-empty { color: var(--text-muted); font-size: 14px; margin: 8px 0; }
 
-@media (max-width: 900px) {
-  .admin-table-wrap {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    overflow: visible;
-  }
-
-  .admin-table,
-  .admin-table tbody {
-    display: block;
-    width: 100%;
-  }
-  .admin-table thead { display: none; }
-
-  .admin-table tr {
-    display: block;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 8px rgba(34, 58, 94, 0.06);
-  }
-  .admin-table tr:nth-child(even) { background: var(--card); }
-
-  .admin-table td {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--cream);
-  }
-  .admin-table td:last-child { border-bottom: none; }
-
-  .admin-table td::before {
-    content: attr(data-label);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    flex-shrink: 0;
-    padding-top: 8px;
-  }
-  .admin-table td[data-label="Email"] {
-    justify-content: flex-start;
-    padding-bottom: 12px;
-    margin-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-  }
-  .admin-table td[data-label="Email"]::before { content: none; }
-  .admin-cell-modules { align-items: flex-end; }
+@media (max-width: 720px) {
+  .admin-person-main { grid-template-columns: 1fr auto; }
+  .admin-person-scope { grid-column: 1 / -1; }
+  .admin-search-input { min-width: 0; flex: 1 1 100%; }
 }
