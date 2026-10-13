@@ -176,19 +176,14 @@ const el = {
   adminLockBtn: document.getElementById("adminLockBtn"),
   adminStateMessage: document.getElementById("adminStateMessage"),
   adminContent: document.getElementById("adminContent"),
-  adminCoordinatorsGrid: document.getElementById("adminCoordinatorsGrid"),
-  adminNewEmail: document.getElementById("adminNewEmail"),
-  adminNewName: document.getElementById("adminNewName"),
-  adminNewCenters: document.getElementById("adminNewCenters"),
-  adminNewNotes: document.getElementById("adminNewNotes"),
-  adminNewModVolunteer: document.getElementById("adminNewModVolunteer"),
-  adminNewModPrograms: document.getElementById("adminNewModPrograms"),
-  adminNewModAttendance: document.getElementById("adminNewModAttendance"),
-  adminNewModPmp: document.getElementById("adminNewModPmp"),
-  adminNewCanEdit: document.getElementById("adminNewCanEdit"),
-  adminNewIsAdmin: document.getElementById("adminNewIsAdmin"),
+  adminAddForm: document.getElementById("adminAddForm"),
+  adminAddMsg: document.getElementById("adminAddMsg"),
   adminAddError: document.getElementById("adminAddError"),
   adminAddBtn: document.getElementById("adminAddBtn"),
+  adminPeopleList: document.getElementById("adminPeopleList"),
+  adminPeopleCount: document.getElementById("adminPeopleCount"),
+  adminSearchInput: document.getElementById("adminSearchInput"),
+  adminRoleFilter: document.getElementById("adminRoleFilter"),
 };
 
 // ===== Helpers =====
@@ -426,7 +421,7 @@ function friendlyAuthError(code) {
   const messages = {
     not_provisioned:
       "Your account isn't set up with dashboard access yet. Ask your Southwest RE Centers admin to grant you access.",
-    module_forbidden: "You don't have access to this module. Ask your admin to grant it.",
+    module_forbidden: "Your role doesn't include this module. Ask your admin if you need it.",
     invalid_token: "Your sign-in session expired — sign out and back in.",
     missing_token: "Your sign-in session expired — sign out and back in.",
     verification_failed: "Couldn't verify your sign-in — try refreshing the page.",
@@ -438,12 +433,15 @@ function friendlyAuthError(code) {
     invalid_email: "Enter a valid email address.",
     missing_coordinator: "Something went wrong preparing that save — try again.",
     cannot_remove_last_admin: "Can't do that — it would leave nobody with Admin access. Make someone else an admin first.",
+    invalid_role: "Pick a role for this person.",
+    centers_required: "Pick at least one center (or All centers) for a Principal.",
+    grades_required: "Pick at least one grade level (or All grade levels) for a Principal.",
   };
   return messages[code] || code;
 }
 
 function meCacheKeyFor(user) {
-  return "sw-re-me-cache-v1-" + user.uid;
+  return "sw-re-me-cache-v2-" + user.uid;
 }
 
 // Fetched right after sign-in, before a single hub tile is shown. Decides
@@ -546,7 +544,7 @@ function applyModuleVisibility() {
   if (el.moduleAdminBtn) el.moduleAdminBtn.classList.toggle("hidden", !meIsAdmin);
 
   document.querySelectorAll("#moduleGrid .module-section").forEach((section) => {
-    const hasVisibleTile = !!section.querySelector(".module-card:not(.hidden), .policy-tile");
+    const hasVisibleTile = !!section.querySelector(".module-card:not(.hidden), .policy-tile:not(.hidden)");
     section.classList.toggle("hidden", !hasVisibleTile);
   });
 }
@@ -1691,58 +1689,240 @@ async function loadAttendance({ forceFresh = false } = {}) {
 }
 
 // ===== Admin module =====
-// Manages the Coordinators sheet from the UI — who can sign in, which
-// modules they see, and (for the Volunteer Dashboard specifically)
-// whether they can edit records. Every write is admin-gated server-side
-// in Code.gs (see doPost's 'coordinator' resource); hiding this tile and
-// section for non-admins here is a convenience, not the real boundary.
+// Manages the Coordinators sheet from the UI. Everyone has one of three
+// roles (Admin, Board Member, Principal); a Principal is also limited to the
+// centers and grade levels tagged on their row. Every write is admin-gated
+// server-side in Code.gs (see doPost's 'coordinator' resource); hiding this
+// tile and section for non-admins here is a convenience, not the real
+// boundary.
+//
+// One reusable form (personFormHtml / readPersonForm) is used both for
+// "Add people" and for editing an existing person inline.
 
-function coordinatorRowHtml(c) {
-  const isSelf = !!(auth.currentUser && auth.currentUser.email && c.email.toLowerCase() === auth.currentUser.email.toLowerCase());
-  const moduleCheckbox = (mod, label) => `
-    <label class="admin-checkbox">
-      <input type="checkbox" data-field="modules" value="${escapeAttr(mod)}" ${c.modules.indexOf(mod) > -1 ? "checked" : ""} />
-      ${escapeHtml(label)}
-    </label>`;
+const ADMIN_ROLES = [
+  { value: "Principal", title: "Principal", desc: "Limited to the centers and grade levels you pick below." },
+  { value: "Board Member", title: "Board Member", desc: "Everything except this Admin screen." },
+  { value: "Admin", title: "Admin", desc: "Everything, including this Admin screen." },
+];
+const ADMIN_ROLE_ORDER = { Admin: 0, "Board Member": 1, Principal: 2 };
+
+let adminCenterOptions = [];
+let adminGradeBands = ["Pre-Primary", "Primary", "Secondary"];
+let adminFormSeq = 0;
+let adminAddFormCenterCount = -1;
+
+function adminRoleClass(role) {
+  return role === "Admin" ? "role-admin" : role === "Board Member" ? "role-board" : "role-principal";
+}
+
+function adminPrincipalIncomplete(c) {
+  return c.role === "Principal" && ((!c.allCenters && c.centers.length === 0) || (!c.allGrades && c.grades.length === 0));
+}
+
+function adminScopeHtml(c) {
+  if (c.role !== "Principal") return "All centers &middot; All grade levels";
+  const centers = c.allCenters ? "All centers" : c.centers.length ? c.centers.map(escapeHtml).join(", ") : "No centers set";
+  const grades = c.allGrades ? "All grade levels" : c.grades.length ? c.grades.map(escapeHtml).join(", ") : "No grade levels set";
+  return `${centers} &middot; ${grades}`;
+}
+
+function personFormHtml(c, { withEmail = false } = {}) {
+  const uid = "pf" + ++adminFormSeq;
+  const centers = Array.isArray(c.centers) ? c.centers : [];
+  const grades = Array.isArray(c.grades) ? c.grades : [];
+
+  // Offer every known center, plus any this person already has that isn't
+  // in the list (so a hand-typed name never silently disappears).
+  const centerList = adminCenterOptions.slice();
+  centers.forEach((n) => {
+    if (centerList.indexOf(n) === -1) centerList.push(n);
+  });
+
+  const roleChoices = ADMIN_ROLES.map(
+    (r) => `
+      <label class="admin-role-choice">
+        <input type="radio" name="role-${uid}" data-field="role" value="${escapeAttr(r.value)}" ${c.role === r.value ? "checked" : ""} />
+        <span class="admin-role-choice-body"><strong>${escapeHtml(r.title)}</strong><small>${escapeHtml(r.desc)}</small></span>
+      </label>`
+  ).join("");
+
+  const centerBoxes = centerList
+    .map(
+      (n) => `
+      <label class="admin-chip"><input type="checkbox" data-field="center" value="${escapeAttr(n)}" ${centers.indexOf(n) > -1 ? "checked" : ""} /><span>${escapeHtml(n)}</span></label>`
+    )
+    .join("");
+
+  const gradeBoxes = adminGradeBands
+    .map(
+      (g) => `
+      <label class="admin-chip"><input type="checkbox" data-field="grade" value="${escapeAttr(g)}" ${grades.indexOf(g) > -1 ? "checked" : ""} /><span>${escapeHtml(g)}</span></label>`
+    )
+    .join("");
+
+  const emailField = withEmail
+    ? `<label class="admin-field">
+        <span>Email(s)</span>
+        <textarea data-field="emails" rows="2" placeholder="name@example.com&#10;Paste several (one per line, or separated by commas) to add them all with the settings below"></textarea>
+      </label>`
+    : "";
 
   return `
-    <tr data-email="${escapeAttr(c.email)}">
-      <td data-label="Email" class="admin-cell-email">${escapeHtml(c.email)}${isSelf ? ' <span class="admin-you-tag">you</span>' : ""}</td>
-      <td data-label="Name"><input type="text" data-field="name" value="${escapeAttr(c.name)}" /></td>
-      <td data-label="Centers"><input type="text" data-field="centers" value="${escapeAttr(c.centers)}" placeholder="ALL, or comma-separated" /></td>
-      <td data-label="Modules" class="admin-cell-modules">
-        ${moduleCheckbox("Volunteer", "Volunteer")}
-        ${moduleCheckbox("Programs", "Programs")}
-        ${moduleCheckbox("PMP", "PMP")}
-        ${moduleCheckbox("Attendance", "Attendance")}
-      </td>
-      <td data-label="Volunteer Edit"><input type="checkbox" data-field="canEdit" ${c.canEdit ? "checked" : ""} /></td>
-      <td data-label="Admin"><input type="checkbox" data-field="isAdmin" ${c.isAdmin ? "checked" : ""} /></td>
-      <td data-label="Notes"><input type="text" data-field="notes" value="${escapeAttr(c.notes)}" /></td>
-      <td data-label="" class="admin-cell-actions">
-        <button type="button" class="ghost-btn admin-save-btn" data-action="save">Save</button>
-        <button type="button" class="ghost-btn admin-remove-btn" data-action="remove">Remove</button>
-        <p class="program-row-error hidden"></p>
-      </td>
-    </tr>`;
+    <div class="admin-form" data-form>
+      ${emailField}
+      <label class="admin-field">
+        <span>Name <em>(optional${withEmail ? ", used when adding one person" : ""})</em></span>
+        <input type="text" data-field="name" value="${escapeAttr(c.name || "")}" />
+      </label>
+      <fieldset class="admin-fieldset">
+        <legend>Role</legend>
+        <div class="admin-role-choices">${roleChoices}</div>
+      </fieldset>
+      <div class="admin-scope" data-scope>
+        <fieldset class="admin-fieldset">
+          <legend>Centers</legend>
+          <label class="admin-checkbox"><input type="checkbox" data-field="allCenters" ${c.allCenters ? "checked" : ""} /> All centers</label>
+          <div class="admin-chip-grid" data-chips="center">${centerBoxes || '<span class="admin-empty">No centers found yet.</span>'}</div>
+        </fieldset>
+        <fieldset class="admin-fieldset">
+          <legend>Grade levels</legend>
+          <label class="admin-checkbox"><input type="checkbox" data-field="allGrades" ${c.allGrades ? "checked" : ""} /> All grade levels</label>
+          <div class="admin-chip-grid" data-chips="grade">${gradeBoxes}</div>
+        </fieldset>
+      </div>
+      <label class="admin-checkbox">
+        <input type="checkbox" data-field="canEdit" ${c.canEdit ? "checked" : ""} />
+        Can edit volunteer records <small>(only the volunteers they can see)</small>
+      </label>
+      <label class="admin-field">
+        <span>Notes <em>(optional)</em></span>
+        <input type="text" data-field="notes" value="${escapeAttr(c.notes || "")}" />
+      </label>
+    </div>`;
+}
+
+// Applies the form's current choices to what's shown: the Centers / Grade
+// levels section only appears for a Principal, "All" greys out the
+// individual boxes, and the chosen role card is highlighted.
+function syncPersonForm(form) {
+  const checkedRole = form.querySelector('input[data-field="role"]:checked');
+  const role = checkedRole ? checkedRole.value : "Principal";
+  form.querySelector("[data-scope]").classList.toggle("hidden", role !== "Principal");
+  form.querySelectorAll(".admin-role-choice").forEach((label) => {
+    label.classList.toggle("selected", label.querySelector("input").checked);
+  });
+  [["allCenters", "center"], ["allGrades", "grade"]].forEach(([allField, itemField]) => {
+    const all = form.querySelector(`input[data-field="${allField}"]`).checked;
+    const grid = form.querySelector(`[data-chips="${itemField}"]`);
+    grid.classList.toggle("disabled", all);
+    grid.querySelectorAll("input").forEach((cb) => {
+      cb.disabled = all;
+    });
+  });
+}
+
+function readPersonForm(form) {
+  const checked = (field) => Array.from(form.querySelectorAll(`input[data-field="${field}"]:checked`)).map((cb) => cb.value);
+  const role = (form.querySelector('input[data-field="role"]:checked') || {}).value || "Principal";
+  const emailsEl = form.querySelector('[data-field="emails"]');
+  return {
+    emails: emailsEl ? emailsEl.value : "",
+    role,
+    name: form.querySelector('input[data-field="name"]').value.trim(),
+    allCenters: form.querySelector('input[data-field="allCenters"]').checked,
+    centers: checked("center"),
+    allGrades: form.querySelector('input[data-field="allGrades"]').checked,
+    grades: checked("grade"),
+    canEdit: form.querySelector('input[data-field="canEdit"]').checked,
+    notes: form.querySelector('input[data-field="notes"]').value.trim(),
+  };
+}
+
+function personCardHtml(c) {
+  const isSelf = !!(auth.currentUser && auth.currentUser.email && c.email.toLowerCase() === auth.currentUser.email.toLowerCase());
+  return `
+    <div class="admin-person ${adminPrincipalIncomplete(c) ? "admin-person-warn" : ""}" data-email="${escapeAttr(c.email)}">
+      <div class="admin-person-main">
+        <div class="admin-person-who">
+          <span class="admin-person-name">${escapeHtml(c.name || c.email)}${isSelf ? '<span class="admin-you-tag">you</span>' : ""}</span>
+          ${c.name ? `<span class="admin-person-email">${escapeHtml(c.email)}</span>` : ""}
+        </div>
+        <span class="role-pill ${adminRoleClass(c.role)}">${escapeHtml(c.role)}</span>
+        <div class="admin-person-scope">
+          ${adminScopeHtml(c)}
+          ${c.canEdit ? "<small>Can edit volunteer records</small>" : ""}
+        </div>
+        <button type="button" class="ghost-btn" data-action="toggle-edit">Edit</button>
+      </div>
+      <div class="admin-person-editor hidden" data-editor></div>
+    </div>`;
 }
 
 function renderCoordinators() {
-  el.adminCoordinatorsGrid.innerHTML = coordinators.map(coordinatorRowHtml).join("");
+  const query = el.adminSearchInput.value.trim().toLowerCase();
+  const roleFilter = el.adminRoleFilter.value;
+
+  const sorted = coordinators.slice().sort((a, b) => {
+    const byRole = (ADMIN_ROLE_ORDER[a.role] ?? 9) - (ADMIN_ROLE_ORDER[b.role] ?? 9);
+    if (byRole !== 0) return byRole;
+    return (a.name || a.email).toLowerCase().localeCompare((b.name || b.email).toLowerCase());
+  });
+
+  const shown = sorted.filter((c) => {
+    if (roleFilter && c.role !== roleFilter) return false;
+    if (!query) return true;
+    const haystack = [c.name, c.email, ...(c.centers || []), ...(c.grades || [])].join(" ").toLowerCase();
+    return haystack.indexOf(query) > -1;
+  });
+
+  const count = (role) => coordinators.filter((c) => c.role === role).length;
+  el.adminPeopleCount.textContent =
+    shown.length === coordinators.length
+      ? `${coordinators.length} total · ${count("Admin")} Admin · ${count("Board Member")} Board · ${count("Principal")} Principal`
+      : `${shown.length} of ${coordinators.length}`;
+
+  el.adminPeopleList.innerHTML = shown.length
+    ? shown.map(personCardHtml).join("")
+    : '<p class="admin-empty">No one matches that search.</p>';
+}
+
+// The "Add people" form is rendered once (and again only if the list of
+// centers has changed AND nothing has been typed yet), so refreshing the
+// list never wipes out an email someone is halfway through typing.
+function renderAddForm({ force = false } = {}) {
+  const existing = el.adminAddForm.querySelector('[data-field="emails"]');
+  const typed = existing && existing.value.trim();
+  if (!force && adminAddFormCenterCount === adminCenterOptions.length && el.adminAddForm.firstChild) return;
+  if (!force && typed) return;
+  el.adminAddForm.innerHTML = personFormHtml(
+    { role: "Principal", allCenters: false, centers: [], allGrades: true, grades: [], canEdit: false },
+    { withEmail: true }
+  );
+  adminAddFormCenterCount = adminCenterOptions.length;
+  syncPersonForm(el.adminAddForm.querySelector("[data-form]"));
 }
 
 function adminCacheKeyFor(user) {
-  return "sw-re-admin-cache-v1-" + user.uid;
+  return "sw-re-admin-cache-v2-" + user.uid;
+}
+
+function applyAdminData(data) {
+  coordinators = Array.isArray(data.coordinators) ? data.coordinators : [];
+  adminCenterOptions = Array.isArray(data.centerOptions) ? data.centerOptions : [];
+  if (Array.isArray(data.gradeBands) && data.gradeBands.length) adminGradeBands = data.gradeBands;
+  if (data.me && (data.me.name || data.me.email)) {
+    el.adminSignedInAs.textContent = data.me.name || data.me.email;
+  }
+  renderAddForm();
+  renderCoordinators();
+  el.adminStateMessage.classList.add("hidden");
+  el.adminContent.classList.remove("hidden");
 }
 
 // Same stale-while-revalidate pattern as the other modules: paint
 // instantly from a local cache (if any) so this screen doesn't sit on a
 // blank "Loading…" for a repeat visit, then always fetch live in the
-// background and re-render when it arrives. Safe to do here even though
-// this is permission data — a save/remove acts on whatever's on screen at
-// the moment it's clicked, and the live fetch that's already in flight by
-// the time an admin has read the table and decided to act will almost
-// always have resolved and corrected any stale paint well before then.
+// background and re-render when it arrives.
 async function loadCoordinators({ forceFresh = false } = {}) {
   const user = auth.currentUser;
   if (!user) return;
@@ -1753,14 +1933,7 @@ async function loadCoordinators({ forceFresh = false } = {}) {
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        const cachedData = JSON.parse(cached);
-        coordinators = Array.isArray(cachedData.coordinators) ? cachedData.coordinators : [];
-        if (cachedData.me && (cachedData.me.name || cachedData.me.email)) {
-          el.adminSignedInAs.textContent = cachedData.me.name || cachedData.me.email;
-        }
-        renderCoordinators();
-        el.adminStateMessage.classList.add("hidden");
-        el.adminContent.classList.remove("hidden");
+        applyAdminData(JSON.parse(cached));
         paintedFromCache = true;
       }
     } catch (e) {
@@ -1784,19 +1957,12 @@ async function loadCoordinators({ forceFresh = false } = {}) {
     const data = await fetchJson(url);
     if (data && data.error) throw new Error(friendlyAuthError(data.error));
 
-    coordinators = Array.isArray(data.coordinators) ? data.coordinators : [];
-    if (data.me && (data.me.name || data.me.email)) {
-      el.adminSignedInAs.textContent = data.me.name || data.me.email;
-    }
     try {
       localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (e) {
       /* storage full/unavailable — not fatal */
     }
-
-    renderCoordinators();
-    el.adminStateMessage.classList.add("hidden");
-    el.adminContent.classList.remove("hidden");
+    applyAdminData(data);
   } catch (err) {
     if (!paintedFromCache) {
       el.adminStateMessage.classList.remove("hidden");
@@ -1807,78 +1973,185 @@ async function loadCoordinators({ forceFresh = false } = {}) {
   }
 }
 
-// Reads a table row's current inputs back into a plain coordinator object
-// ready to send to the server. The server re-validates and whitelists
-// everything anyway (see upsertCoordinator in Code.gs) — this is just
-// gathering what's on screen.
-function readCoordinatorRow(row) {
-  const modules = Array.from(row.querySelectorAll('input[data-field="modules"]:checked')).map((cb) => cb.value);
-  return {
-    email: row.dataset.email,
-    name: row.querySelector('input[data-field="name"]').value.trim(),
-    centers: row.querySelector('input[data-field="centers"]').value.trim(),
-    canEdit: row.querySelector('input[data-field="canEdit"]').checked,
-    isAdmin: row.querySelector('input[data-field="isAdmin"]').checked,
-    notes: row.querySelector('input[data-field="notes"]').value.trim(),
-    modules: modules,
-  };
-}
-
-async function saveCoordinator(row) {
-  const errorEl = row.querySelector(".program-row-error");
-  const inputs = row.querySelectorAll("input, button");
-  inputs.forEach((i) => (i.disabled = true));
-  if (errorEl) errorEl.classList.add("hidden");
-
+function adminClearCache() {
+  const user = auth.currentUser;
+  if (!user) return;
   try {
-    const user = auth.currentUser;
-    if (!user) throw new Error("You're signed out — sign in again.");
-    const idToken = await user.getIdToken();
-    const coordinator = readCoordinatorRow(row);
-
-    const data = await fetchJson(APPS_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
-    });
-    if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!data || !data.ok) throw new Error("Server error — try again.");
-
-    const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
-    if (idx > -1) coordinators[idx] = data.coordinator;
-    renderCoordinators();
-    try {
-      localStorage.removeItem(adminCacheKeyFor(user));
-    } catch (e) {
-      /* ignore */
-    }
-
-    // If the admin just edited their OWN row, their modules/admin status
-    // may have changed — refresh the hub's permission summary too so the
-    // tiles reflect it without a full sign-out/in.
-    if (user.email && coordinator.email.toLowerCase() === user.email.toLowerCase()) loadMe();
-  } catch (err) {
-    if (errorEl) {
-      errorEl.textContent = "Couldn't save: " + err.message;
-      errorEl.classList.remove("hidden");
-    }
-    inputs.forEach((i) => (i.disabled = false));
+    localStorage.removeItem(adminCacheKeyFor(user));
+  } catch (e) {
+    /* ignore */
   }
 }
 
-async function removeCoordinatorRow(row) {
-  const email = row.dataset.email;
-  if (!confirm(`Remove access for ${email}? They'll no longer be able to see any module.`)) return;
+// One save call per person. The server re-validates and whitelists
+// everything (see upsertCoordinator in Code.gs) — this just gathers what's
+// on screen and sends it.
+async function postCoordinator(coordinator) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("You're signed out — sign in again.");
+  const idToken = await user.getIdToken();
+  const data = await fetchJson(APPS_SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
+  });
+  if (data && data.error) throw new Error(friendlyAuthError(data.error));
+  if (!data || !data.ok) throw new Error("Server error — try again.");
+  return data.coordinator;
+}
 
-  const errorEl = row.querySelector(".program-row-error");
-  const inputs = row.querySelectorAll("input, button");
-  inputs.forEach((i) => (i.disabled = true));
-  if (errorEl) errorEl.classList.add("hidden");
+function upsertLocalCoordinator(saved) {
+  const idx = coordinators.findIndex((c) => c.email.toLowerCase() === saved.email.toLowerCase());
+  if (idx > -1) coordinators[idx] = saved;
+  else coordinators.push(saved);
+}
 
+// --- Add people (one or many) ---
+async function addCoordinators() {
+  el.adminAddError.classList.add("hidden");
+  el.adminAddMsg.classList.add("hidden");
+
+  const form = el.adminAddForm.querySelector("[data-form]");
+  const values = readPersonForm(form);
+  const emails = Array.from(new Set(values.emails.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean)));
+  const invalid = emails.filter((e) => e.indexOf("@") === -1);
+  if (emails.length === 0 || invalid.length > 0) {
+    el.adminAddError.textContent = invalid.length
+      ? "These don't look like email addresses: " + invalid.join(", ")
+      : "Enter at least one email address.";
+    el.adminAddError.classList.remove("hidden");
+    return;
+  }
+  if (values.role === "Principal") {
+    if (!values.allCenters && values.centers.length === 0) {
+      el.adminAddError.textContent = "Pick at least one center (or All centers) for a Principal.";
+      el.adminAddError.classList.remove("hidden");
+      return;
+    }
+    if (!values.allGrades && values.grades.length === 0) {
+      el.adminAddError.textContent = "Pick at least one grade level (or All grade levels) for a Principal.";
+      el.adminAddError.classList.remove("hidden");
+      return;
+    }
+  }
+
+  el.adminAddBtn.disabled = true;
+  const added = [];
+  const failed = [];
+  for (let i = 0; i < emails.length; i++) {
+    el.adminAddBtn.textContent = emails.length > 1 ? `Adding ${i + 1} of ${emails.length}…` : "Adding…";
+    try {
+      const saved = await postCoordinator({
+        email: emails[i],
+        name: emails.length === 1 ? values.name : "",
+        role: values.role,
+        allCenters: values.allCenters,
+        centers: values.centers,
+        allGrades: values.allGrades,
+        grades: values.grades,
+        canEdit: values.canEdit,
+        notes: values.notes,
+      });
+      upsertLocalCoordinator(saved);
+      added.push(emails[i]);
+    } catch (err) {
+      failed.push(`${emails[i]} (${err.message})`);
+    }
+  }
+
+  adminClearCache();
+  renderCoordinators();
+  el.adminAddBtn.disabled = false;
+  el.adminAddBtn.textContent = "Add";
+
+  if (added.length) {
+    el.adminAddMsg.textContent = added.length === 1 ? `Added ${added[0]}.` : `Added ${added.length} people.`;
+    el.adminAddMsg.classList.remove("hidden");
+    // Clear who was just added, but keep the role/center/grade choices so
+    // the next person at the same center is one paste away.
+    form.querySelector('[data-field="emails"]').value = failed.length ? failed.map((f) => f.split(" (")[0]).join("\n") : "";
+    form.querySelector('input[data-field="name"]').value = "";
+    form.querySelector('input[data-field="notes"]').value = "";
+  }
+  if (failed.length) {
+    el.adminAddError.textContent = "Couldn't add: " + failed.join("; ");
+    el.adminAddError.classList.remove("hidden");
+  }
+}
+
+// --- Edit / remove an existing person ---
+function openEditor(card) {
+  const email = card.dataset.email;
+  const person = coordinators.find((c) => c.email.toLowerCase() === email.toLowerCase());
+  if (!person) return;
+  const editor = card.querySelector("[data-editor]");
+  editor.innerHTML = `
+    ${personFormHtml(person)}
+    <div class="admin-form-actions" style="margin-top: 16px;">
+      <button type="button" class="export-btn" data-action="save">Save changes</button>
+      <button type="button" class="ghost-btn" data-action="cancel">Cancel</button>
+      <button type="button" class="ghost-btn admin-remove-btn" data-action="remove">Remove access</button>
+    </div>
+    <p class="detail-save-error hidden" data-editor-error></p>`;
+  editor.classList.remove("hidden");
+  syncPersonForm(editor.querySelector("[data-form]"));
+  card.querySelector('[data-action="toggle-edit"]').textContent = "Close";
+}
+
+function closeEditor(card) {
+  const editor = card.querySelector("[data-editor]");
+  editor.classList.add("hidden");
+  editor.innerHTML = "";
+  card.querySelector('[data-action="toggle-edit"]').textContent = "Edit";
+}
+
+async function saveCoordinatorCard(card) {
+  const editor = card.querySelector("[data-editor]");
+  const errorEl = editor.querySelector("[data-editor-error]");
+  const buttons = editor.querySelectorAll("button");
+  errorEl.classList.add("hidden");
+  const values = readPersonForm(editor.querySelector("[data-form]"));
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    const saved = await postCoordinator({
+      email: card.dataset.email,
+      name: values.name,
+      role: values.role,
+      allCenters: values.allCenters,
+      centers: values.centers,
+      allGrades: values.allGrades,
+      grades: values.grades,
+      canEdit: values.canEdit,
+      notes: values.notes,
+    });
+    upsertLocalCoordinator(saved);
+    adminClearCache();
+    renderCoordinators();
+
+    // If the admin just edited their OWN row, their access may have
+    // changed — refresh the hub's permission summary too so the tiles
+    // reflect it without a full sign-out/in.
+    const me = auth.currentUser;
+    if (me && me.email && saved.email.toLowerCase() === me.email.toLowerCase()) loadMe();
+  } catch (err) {
+    errorEl.textContent = "Couldn't save: " + err.message;
+    errorEl.classList.remove("hidden");
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+async function removeCoordinatorCard(card) {
+  const email = card.dataset.email;
+  if (!confirm(`Remove access for ${email}? They'll no longer be able to see anything.`)) return;
+
+  const editor = card.querySelector("[data-editor]");
+  const errorEl = editor.querySelector("[data-editor-error]");
+  const buttons = editor.querySelectorAll("button");
+  errorEl.classList.add("hidden");
+  buttons.forEach((b) => (b.disabled = true));
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("You're signed out — sign in again.");
     const idToken = await user.getIdToken();
-
     const data = await fetchJson(APPS_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ idToken, resource: "coordinator", action: "remove", targetEmail: email }),
@@ -1887,100 +2160,39 @@ async function removeCoordinatorRow(row) {
     if (!data || !data.ok) throw new Error("Server error — try again.");
 
     coordinators = coordinators.filter((c) => c.email.toLowerCase() !== email.toLowerCase());
+    adminClearCache();
     renderCoordinators();
-    try {
-      localStorage.removeItem(adminCacheKeyFor(user));
-    } catch (e) {
-      /* ignore */
-    }
   } catch (err) {
-    if (errorEl) {
-      errorEl.textContent = "Couldn't remove: " + err.message;
-      errorEl.classList.remove("hidden");
-    }
-    inputs.forEach((i) => (i.disabled = false));
+    errorEl.textContent = "Couldn't remove: " + err.message;
+    errorEl.classList.remove("hidden");
+    buttons.forEach((b) => (b.disabled = false));
   }
 }
 
-el.adminCoordinatorsGrid.addEventListener("click", (e) => {
+el.adminPeopleList.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
-  const row = btn.closest("tr");
-  if (!row) return;
-  if (btn.dataset.action === "save") saveCoordinator(row);
-  else if (btn.dataset.action === "remove") removeCoordinatorRow(row);
+  const card = btn.closest(".admin-person");
+  if (!card) return;
+  const action = btn.dataset.action;
+  if (action === "toggle-edit") {
+    if (card.querySelector("[data-editor]").classList.contains("hidden")) openEditor(card);
+    else closeEditor(card);
+  } else if (action === "cancel") closeEditor(card);
+  else if (action === "save") saveCoordinatorCard(card);
+  else if (action === "remove") removeCoordinatorCard(card);
 });
 
-async function addCoordinator() {
-  el.adminAddError.classList.add("hidden");
-  const email = el.adminNewEmail.value.trim();
-  if (!email || email.indexOf("@") === -1) {
-    el.adminAddError.textContent = "Enter a valid email address.";
-    el.adminAddError.classList.remove("hidden");
-    return;
-  }
+// Any change inside a form (role, All centers, All grade levels) re-applies
+// what's shown — one listener covers the add form and every open editor.
+el.adminRoot.addEventListener("change", (e) => {
+  const form = e.target.closest("[data-form]");
+  if (form) syncPersonForm(form);
+});
 
-  const modules = [];
-  if (el.adminNewModVolunteer.checked) modules.push("Volunteer");
-  if (el.adminNewModPrograms.checked) modules.push("Programs");
-  if (el.adminNewModAttendance.checked) modules.push("Attendance");
-  if (el.adminNewModPmp.checked) modules.push("PMP");
-
-  const coordinator = {
-    email: email,
-    name: el.adminNewName.value.trim(),
-    centers: el.adminNewCenters.value.trim(),
-    canEdit: el.adminNewCanEdit.checked,
-    isAdmin: el.adminNewIsAdmin.checked,
-    notes: el.adminNewNotes.value.trim(),
-    modules: modules,
-  };
-
-  el.adminAddBtn.disabled = true;
-  el.adminAddBtn.textContent = "Adding…";
-
-  try {
-    const user = auth.currentUser;
-    if (!user) throw new Error("You're signed out — sign in again.");
-    const idToken = await user.getIdToken();
-
-    const data = await fetchJson(APPS_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({ idToken, resource: "coordinator", coordinator }),
-    });
-    if (data && data.error) throw new Error(friendlyAuthError(data.error));
-    if (!data || !data.ok) throw new Error("Server error — try again.");
-
-    const idx = coordinators.findIndex((c) => c.email.toLowerCase() === coordinator.email.toLowerCase());
-    if (idx > -1) coordinators[idx] = data.coordinator;
-    else coordinators.push(data.coordinator);
-    renderCoordinators();
-    try {
-      localStorage.removeItem(adminCacheKeyFor(user));
-    } catch (e) {
-      /* ignore */
-    }
-
-    el.adminNewEmail.value = "";
-    el.adminNewName.value = "";
-    el.adminNewCenters.value = "";
-    el.adminNewNotes.value = "";
-    el.adminNewModVolunteer.checked = false;
-    el.adminNewModPrograms.checked = false;
-    el.adminNewModAttendance.checked = false;
-    el.adminNewModPmp.checked = false;
-    el.adminNewCanEdit.checked = false;
-    el.adminNewIsAdmin.checked = false;
-  } catch (err) {
-    el.adminAddError.textContent = "Couldn't add: " + err.message;
-    el.adminAddError.classList.remove("hidden");
-  } finally {
-    el.adminAddBtn.disabled = false;
-    el.adminAddBtn.textContent = "Add Person";
-  }
-}
-
-el.adminAddBtn.addEventListener("click", addCoordinator);
+el.adminSearchInput.addEventListener("input", renderCoordinators);
+el.adminRoleFilter.addEventListener("change", renderCoordinators);
+el.adminAddBtn.addEventListener("click", addCoordinators);
 
 // ===== Event wiring =====
 
