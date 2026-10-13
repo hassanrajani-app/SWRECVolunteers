@@ -57,18 +57,18 @@
     <section id="hubStateMessage" class="state-message hidden"></section>
     <div class="module-grid hidden" id="moduleGrid">
 
-      <!-- Policies & Guidelines: plain links to Google Docs, not modules —
-           no data-module, so visible to everyone. To add or change one,
+      <!-- Guidance & Policies: plain links to Google Docs, not modules.
+           Shown to every role (data-module="Policies"). To add or change one,
            edit the href and the title text; copy a whole <a> block to add
            another. -->
       <div class="module-section">
-        <h3 class="module-section-title">Policies &amp; Guidelines</h3>
+        <h3 class="module-section-title">Guidance &amp; Policies</h3>
         <div class="policy-tiles">
-          <a class="policy-tile" href="https://docs.google.com/document/d/1cw0LTkgXXVolYl-uVGyrwwgD6nogojUyr8toEPCiEaI/edit?usp=sharing" target="_blank" rel="noopener">
+          <a class="policy-tile hidden" data-module="Policies" href="https://docs.google.com/document/d/1cw0LTkgXXVolYl-uVGyrwwgD6nogojUyr8toEPCiEaI/edit?usp=sharing" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
             <span>Teachers and Management Appreciation Policy</span>
           </a>
-          <a class="policy-tile" href="https://docs.google.com/document/d/1sQWP7GslheTVHtAeLKobsSi_vfaLarMoExavBoNcsdI/edit?usp=sharing" target="_blank" rel="noopener">
+          <a class="policy-tile hidden" data-module="Policies" href="https://docs.google.com/document/d/1sQWP7GslheTVHtAeLKobsSi_vfaLarMoExavBoNcsdI/edit?usp=sharing" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
             <span>Celebration of Learning Policy</span>
           </a>
@@ -92,19 +92,13 @@
             <h2 class="module-title">Volunteer Dashboard</h2>
           </button>
 
-          <button type="button" class="module-card module-brown hidden" id="moduleProgramsBtn" data-module="Programs">
-            <div class="module-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M8.5 12.5h7"/><path d="M8.5 15.5h7"/><path d="M8.5 18.5h4"/></svg>
-            </div>
-            <h2 class="module-title">ITREB Programs</h2>
-          </button>
         </div>
       </div>
 
       <div class="module-section">
-        <h3 class="module-section-title">Facilities &amp; Safety</h3>
+        <h3 class="module-section-title">Facilities and Safety</h3>
         <div class="module-section-tiles">
-          <a class="module-card module-gender" href="https://nationalusarec.org/dashboard" target="_blank" rel="noopener">
+          <a class="module-card module-gender hidden" data-module="Safeguarding" href="https://nationalusarec.org/dashboard" target="_blank" rel="noopener">
             <div class="module-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
             </div>
@@ -118,14 +112,14 @@
             <h2 class="module-title">PMP Service Maintenance</h2>
           </button>
 
-          <a class="module-card module-navy" href="https://www.southwestportal.com/admin/login" target="_blank" rel="noopener">
+          <a class="module-card module-navy hidden" data-module="Council" href="https://www.southwestportal.com/admin/login" target="_blank" rel="noopener">
             <div class="module-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10 12 4l8 6"/><path d="M5 10v9"/><path d="M9 10v9"/><path d="M15 10v9"/><path d="M19 10v9"/><path d="M3.5 19h17"/></svg>
             </div>
             <h2 class="module-title">SW Council Portal</h2>
           </a>
 
-          <a class="module-card module-gender" href="https://incidentreport.xyz/report_incident.php" target="_blank" rel="noopener">
+          <a class="module-card module-gender hidden" data-module="Incident" href="https://incidentreport.xyz/report_incident.php" target="_blank" rel="noopener">
             <div class="module-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 4 7v6c0 4.5 3.3 7 8 7.5 4.7-.5 8-3 8-7.5V7l-8-3.5Z"/><path d="M12 8.5v4.5"/><circle cx="12" cy="16" r="0.9" fill="currentColor" stroke="none"/></svg>
             </div>
@@ -135,9 +129,9 @@
       </div>
 
       <div class="module-section">
-        <h3 class="module-section-title">External Links</h3>
+        <h3 class="module-section-title">Resources</h3>
         <div class="module-section-tiles">
-          <a class="module-card module-blue" href="https://southwestrec.netlify.app/" target="_blank" rel="noopener">
+          <a class="module-card module-blue hidden" data-module="Resources" href="https://southwestrec.netlify.app/" target="_blank" rel="noopener">
             <div class="module-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 5 6 4 11-1 1.5-2.5 2.5-4 2.5s-3-1-4-2.5C7 8 9 4 12 2Z"/><circle cx="12" cy="9" r="1.6"/><path d="M9 14l-2 2.5c-.4.5-.6 1.1-.6 1.7V20h1.8c.6 0 1.2-.2 1.7-.6L11 18"/><path d="M15 14l2 2.5c.4.5.6 1.1.6 1.7V20h-1.8c-.6 0-1.2-.2-1.7-.6L13 18"/></svg>
             </div>
@@ -681,56 +675,49 @@
 
     <div id="adminContent" class="hidden">
 
-      <section class="admin-add-card">
-        <h2 class="admin-add-title">Add a person</h2>
-        <p class="admin-add-hint">They still need a sign-in account created once in the Firebase console (see README.md) — this only sets what that account can see and edit once they sign in.</p>
-        <div class="admin-add-grid">
-          <label class="admin-field">
-            <span>Email</span>
-            <input type="email" id="adminNewEmail" placeholder="name@example.com" />
-          </label>
-          <label class="admin-field">
-            <span>Name</span>
-            <input type="text" id="adminNewName" placeholder="Optional" />
-          </label>
-          <label class="admin-field">
-            <span>Centers</span>
-            <input type="text" id="adminNewCenters" placeholder="ALL, or comma-separated" />
-          </label>
-          <label class="admin-field">
-            <span>Notes</span>
-            <input type="text" id="adminNewNotes" placeholder="Optional" />
-          </label>
+      <section class="admin-intro-card">
+        <h2 class="admin-add-title">Who can see what</h2>
+        <p class="admin-add-hint">Everyone gets one of three roles. Only Principals are limited by center and grade level.</p>
+        <div class="admin-role-legend">
+          <div class="admin-role-box">
+            <span class="role-pill role-admin">Admin</span>
+            <p>Everything, including this Admin screen.</p>
+          </div>
+          <div class="admin-role-box">
+            <span class="role-pill role-board">Board Member</span>
+            <p>Everything except this Admin screen.</p>
+          </div>
+          <div class="admin-role-box">
+            <span class="role-pill role-principal">Principal</span>
+            <p>Attendance Metrics, Volunteer Dashboard, Safeguarding Portal, PMP Service Maintenance, Report Incident, Guidance &amp; Policies, and Resources. Attendance and volunteer data is limited to the centers and grade levels you tag.</p>
+          </div>
         </div>
-        <div class="admin-add-toggles">
-          <label class="admin-checkbox"><input type="checkbox" id="adminNewModVolunteer" /> Volunteer Dashboard</label>
-          <label class="admin-checkbox"><input type="checkbox" id="adminNewModPrograms" /> ITREB Programs</label>
-          <label class="admin-checkbox"><input type="checkbox" id="adminNewModAttendance" /> Attendance Metrics</label>
-          <label class="admin-checkbox"><input type="checkbox" id="adminNewModPmp" /> PMP Service Maintenance</label>
-          <label class="admin-checkbox admin-checkbox-divider"><input type="checkbox" id="adminNewCanEdit" /> Can edit volunteer records</label>
-          <label class="admin-checkbox"><input type="checkbox" id="adminNewIsAdmin" /> Admin</label>
-        </div>
-        <p id="adminAddError" class="detail-save-error hidden"></p>
-        <button type="button" class="export-btn" id="adminAddBtn">Add Person</button>
       </section>
 
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Name</th>
-              <th>Centers</th>
-              <th>Modules</th>
-              <th>Volunteer&nbsp;Edit</th>
-              <th>Admin</th>
-              <th>Notes</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="adminCoordinatorsGrid"></tbody>
-        </table>
-      </div>
+      <section class="admin-add-card">
+        <h2 class="admin-add-title">Add people</h2>
+        <p class="admin-add-hint">Each person also needs a sign-in account created once in the Firebase console. This screen only sets what they can see once they sign in. To add several people with the same settings, paste all their emails below.</p>
+        <div id="adminAddForm"></div>
+        <div class="admin-form-actions" style="margin-top: 16px;">
+          <button type="button" class="export-btn" id="adminAddBtn">Add</button>
+          <p id="adminAddMsg" class="admin-msg-ok hidden"></p>
+          <p id="adminAddError" class="detail-save-error hidden"></p>
+        </div>
+      </section>
+
+      <section class="admin-people-section">
+        <div class="admin-people-toolbar">
+          <h2 class="admin-people-title">People <span id="adminPeopleCount"></span></h2>
+          <input type="search" id="adminSearchInput" class="admin-search-input" placeholder="Search name, email, or center" />
+          <select id="adminRoleFilter" class="admin-role-filter">
+            <option value="">All roles</option>
+            <option value="Admin">Admin</option>
+            <option value="Board Member">Board Member</option>
+            <option value="Principal">Principal</option>
+          </select>
+        </div>
+        <div id="adminPeopleList" class="admin-people-list"></div>
+      </section>
 
     </div>
 
