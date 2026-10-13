@@ -546,7 +546,7 @@ function applyModuleVisibility() {
   if (el.moduleAdminBtn) el.moduleAdminBtn.classList.toggle("hidden", !meIsAdmin);
 
   document.querySelectorAll("#moduleGrid .module-section").forEach((section) => {
-    const hasVisibleTile = !!section.querySelector(".module-card:not(.hidden)");
+    const hasVisibleTile = !!section.querySelector(".module-card:not(.hidden), .policy-tile");
     section.classList.toggle("hidden", !hasVisibleTile);
   });
 }
