@@ -721,7 +721,7 @@ function setupMultiSelect({ btnId, panelId, badgeId, getOptions, selectedSet, on
 
 // Options data the dropdowns read from. Populated/refreshed by
 // refreshFilterPanels() every time new volunteer data arrives.
-const filterOptionsData = { centers: [], positions: [], grades: [], servingPrograms: [] };
+const filterOptionsData = { centers: [], positions: [], grades: [], servingPrograms: [], countries: [] };
 
 let msControllers = {};
 let filterListenersBound = false;
@@ -739,6 +739,8 @@ function refreshFilterPanels() {
   // wording Tally submits for this answer (and shows nothing extra for
   // older submissions from before this question existed).
   filterOptionsData.servingPrograms = [...new Set(volunteers.map((v) => v.servingProgram).filter(Boolean))].sort();
+  // Country of Birth is a dropdown on the form now, so the edit screen offers the same: every country already in the roster.
+  filterOptionsData.countries = [...new Set(volunteers.map((v) => v.countryOfBirth).filter(Boolean))].sort();
 
   if (!filterListenersBound) {
     filterListenersBound = true;
@@ -931,7 +933,8 @@ const DETAIL_FIELDS = [
   { key: "education", label: "Education Level" },
   { key: "studiesInUSA", label: "Studies Completed in USA" },
   { key: "occupation", label: "Occupation" },
-  { key: "countryOfBirth", label: "Country of Birth" },
+  { key: "countryOfBirth", label: "Country of Birth", type: "select", options: () => filterOptionsData.countries, allowBlank: true, blankLabel: "Not set" },
+  { key: "yearMovedToUS", label: "Year Moved to the US" },
   { key: "tshirtSize", label: "T-Shirt Size" },
   { key: "sevaOutside", label: "Seva Outside RE System", multiline: true },
   { key: "sevaHistory", label: "Seva History Within RE", multiline: true },
@@ -1122,6 +1125,7 @@ function exportToExcel() {
     "Studies Completed in USA": v.studiesInUSA,
     "Occupation": v.occupation,
     "Country of Birth": v.countryOfBirth,
+    "Year Moved to the US": v.yearMovedToUS,
     "T-Shirt Size": v.tshirtSize,
     "Seva Outside RE System": v.sevaOutside,
     "Seva History Within RE": v.sevaHistory,
