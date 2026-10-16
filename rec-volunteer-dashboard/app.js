@@ -628,11 +628,19 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     render();
     el.stateMessage.classList.add("hidden");
     el.volTable.classList.remove("hidden");
-  } catch (err) {
-    if (!paintedFromCache) {
+    // Server reports how many data rows the sheet has; if the roster we got
+    // is smaller (full-access users only), say so instead of staying silent.
+    if (data.meta && data.meta.sheetRows > volunteers.length) {
       el.stateMessage.classList.remove("hidden");
-      el.stateMessage.textContent = "Couldn't load volunteers: " + err.message;
+      el.stateMessage.textContent =
+        "Showing " + volunteers.length + " of " + data.meta.sheetRows +
+        " rows in the sheet. " + data.meta.skipped + " row(s) have no name and were skipped.";
     }
+  } catch (err) {
+    el.stateMessage.classList.remove("hidden");
+    el.stateMessage.textContent = paintedFromCache
+      ? "Showing saved data — couldn't refresh: " + err.message + " Press Refresh to retry."
+      : "Couldn't load volunteers: " + err.message;
   } finally {
     el.refreshBtn.classList.remove("spinning");
   }
