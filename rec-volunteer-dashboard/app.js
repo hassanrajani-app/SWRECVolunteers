@@ -159,6 +159,12 @@ const el = {
   attendanceOverallSecondary: document.getElementById("attendanceOverallSecondary"),
   attendanceTrendOverlay: document.getElementById("attendanceTrendOverlay"),
   closeAttendanceTrend: document.getElementById("closeAttendanceTrend"),
+  yoyBtn: document.getElementById("yoyBtn"),
+  yoyOverlay: document.getElementById("yoyOverlay"),
+  closeYoy: document.getElementById("closeYoy"),
+  yoyChart: document.getElementById("yoyChart"),
+  yoyEmpty: document.getElementById("yoyEmpty"),
+  yoyNote: document.getElementById("yoyNote"),
   attendanceTrendTitle: document.getElementById("attendanceTrendTitle"),
   attendanceTrendSubtitle: document.getElementById("attendanceTrendSubtitle"),
   attendanceTrendChart: document.getElementById("attendanceTrendChart"),
@@ -1625,6 +1631,135 @@ function openAttendanceTrend(key) {
   el.attendanceTrendOverlay.classList.remove("hidden");
 }
 
+// ===== Year-over-year attendance chart =====
+// One line per grade band, one point per academic year. Data comes from a
+// separate endpoint (Historical tab + current Attendance tab) fetched only
+// when the button is pressed, then kept in memory for the session.
+
+let yoyChartInstance = null;
+let yoyData = null;
+const YOY_BANDS = [
+  { key: "Pre-Primary", color: "#e0833a" },
+  { key: "Primary", color: "#2b6cb0" },
+  { key: "Secondary", color: "#2f9e6e" },
+];
+
+const yoyLabelsPlugin = {
+  id: "yoyLabels",
+  afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.font = "600 12px sans-serif";
+    ctx.textAlign = "center";
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      ctx.fillStyle = ds.borderColor;
+      // Pre-Primary labels sit below, others above, so lines that run close together stay readable.
+      ctx.textBaseline = di === 0 ? "top" : "bottom";
+      meta.data.forEach((pt, i) => {
+        const v = ds.data[i];
+        if (v == null) return;
+        ctx.fillText(v.toFixed(1) + "%", pt.x, di === 0 ? pt.y + 9 : pt.y - 9);
+      });
+    });
+    ctx.restore();
+  },
+};
+
+function drawYoyChart(points) {
+  if (yoyChartInstance) {
+    yoyChartInstance.destroy();
+    yoyChartInstance = null;
+  }
+  const labels = points.map((p) => p.year + (p.partial ? " (to date)" : ""));
+  const all = [];
+  const datasets = YOY_BANDS.map((b) => {
+    const data = points.map((p) => (p.bands[b.key] == null ? null : p.bands[b.key]));
+    data.forEach((v) => v != null && all.push(v));
+    return {
+      label: b.key,
+      data,
+      borderColor: b.color,
+      backgroundColor: b.color,
+      borderWidth: 3,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      tension: 0.25,
+      spanGaps: true,
+    };
+  });
+  const lowest = all.length ? Math.min(...all) : 0;
+  const highest = all.length ? Math.max(...all) : 100;
+  const yMin = Math.max(0, Math.floor((lowest - 6) / 5) * 5);
+  const yMax = Math.min(100, Math.ceil((highest + 4) / 5) * 5);
+  yoyChartInstance = new Chart(el.yoyChart, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      layout: { padding: { top: 16, right: 24 } },
+      scales: {
+        y: { min: yMin, max: yMax, ticks: { callback: (v) => v + "%", font: { size: 13 } }, grid: { color: "#e6ebf2" } },
+        x: { ticks: { font: { size: 13, weight: "600" } }, grid: { display: false } },
+      },
+      plugins: {
+        legend: { position: "top", labels: { usePointStyle: true, font: { size: 14, weight: "600" }, padding: 18 } },
+        tooltip: { callbacks: { label: (c) => c.dataset.label + ": " + (c.parsed.y == null ? "n/a" : c.parsed.y.toFixed(1) + "%") } },
+      },
+    },
+    plugins: [yoyLabelsPlugin],
+  });
+}
+
+async function openYoy() {
+  el.yoyOverlay.classList.remove("hidden");
+  el.yoyEmpty.classList.add("hidden");
+  el.yoyChart.classList.remove("hidden");
+  el.yoyNote.textContent = "";
+  if (!yoyData) {
+    el.yoyChart.classList.add("hidden");
+    el.yoyEmpty.textContent = "Loading year-over-year data…";
+    el.yoyEmpty.classList.remove("hidden");
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Please sign in again.");
+      const idToken = await user.getIdToken();
+      const params = new URLSearchParams({ idToken, resource: "attendance_yoy" });
+      const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString();
+      const data = await fetchJson(url, {}, 45000);
+      if (data && data.error) throw new Error(friendlyAuthError(data.error));
+      yoyData = Array.isArray(data.yoy) ? data.yoy : [];
+    } catch (err) {
+      el.yoyEmpty.textContent = "Couldn't load the year-over-year trend: " + err.message;
+      return;
+    }
+  }
+  if (yoyData.length === 0) {
+    el.yoyChart.classList.add("hidden");
+    el.yoyEmpty.textContent = "No historical attendance data found yet.";
+    el.yoyEmpty.classList.remove("hidden");
+    return;
+  }
+  el.yoyEmpty.classList.add("hidden");
+  el.yoyChart.classList.remove("hidden");
+  try {
+    drawYoyChart(yoyData);
+    if (yoyData.some((p) => p.partial)) {
+      el.yoyNote.textContent = "The current academic year is still in progress, so its figure covers classes held to date.";
+    }
+  } catch (e) {
+    el.yoyChart.classList.add("hidden");
+    el.yoyEmpty.textContent = "Couldn't draw the chart. Please try again.";
+    el.yoyEmpty.classList.remove("hidden");
+  }
+}
+
+function closeYoy() {
+  el.yoyOverlay.classList.add("hidden");
+}
+
 function closeAttendanceTrend() {
   el.attendanceTrendOverlay.classList.add("hidden");
 }
@@ -1637,6 +1772,7 @@ function attendanceCacheKeyFor(user) {
 async function loadAttendance({ forceFresh = false } = {}) {
   const user = auth.currentUser;
   if (!user) return;
+  yoyData = null; // re-fetched on next open so it always matches the signed-in user
 
   const cacheKey = attendanceCacheKeyFor(user);
   let paintedFromCache = false;
@@ -2375,6 +2511,7 @@ function showHub() {
   el.adminRoot.classList.add("hidden");
   el.pmpRoot.classList.add("hidden");
   closeAttendanceTrend();
+  closeYoy();
   el.hubRoot.classList.remove("hidden");
 }
 
@@ -2481,6 +2618,16 @@ ATTENDANCE_CATEGORIES.forEach(({ grid }) => {
     openAttendanceTrend(card.dataset.key);
   });
 });
+if (el.yoyBtn) el.yoyBtn.addEventListener("click", openYoy);
+if (el.closeYoy) el.closeYoy.addEventListener("click", closeYoy);
+if (el.yoyOverlay) {
+  el.yoyOverlay.addEventListener("click", (e) => {
+    if (e.target === el.yoyOverlay) closeYoy();
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && el.yoyOverlay && !el.yoyOverlay.classList.contains("hidden")) closeYoy();
+});
 if (el.closeAttendanceTrend) {
   el.closeAttendanceTrend.addEventListener("click", closeAttendanceTrend);
 }
@@ -2492,6 +2639,7 @@ if (el.attendanceTrendOverlay) {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && el.attendanceTrendOverlay && !el.attendanceTrendOverlay.classList.contains("hidden")) {
     closeAttendanceTrend();
+  closeYoy();
   }
 });
 if (el.moduleAdminBtn) {
@@ -2545,6 +2693,7 @@ auth.onAuthStateChanged((user) => {
     el.adminRoot.classList.add("hidden");
     el.pmpRoot.classList.add("hidden");
     closeAttendanceTrend();
+  closeYoy();
     el.hubRoot.classList.add("hidden");
     el.passwordGate.classList.remove("hidden");
     el.gateError.classList.add("hidden");
