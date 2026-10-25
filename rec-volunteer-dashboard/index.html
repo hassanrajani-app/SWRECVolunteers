@@ -554,6 +554,7 @@
       <div class="attendance-total-banner">
         <span id="attendanceTotalValue" class="attendance-total-value">—</span>
         <span class="attendance-total-label">Total Students Enrolled</span>
+        <button id="yoyBtn" class="yoy-btn" type="button">Year over Year trend</button>
       </div>
 
       <div class="attendance-meta-row">
@@ -614,7 +615,23 @@
       </section>
     </div>
 
-    <!-- Trend popup: opens on tapping any attendance card, showing that
+        <!-- Year-over-year popup: one line per grade band across academic years. -->
+    <div id="yoyOverlay" class="overlay hidden">
+      <div class="detail-card trend-card yoy-card">
+        <button id="closeYoy" class="close-btn" aria-label="Close">✕</button>
+        <div class="trend-header">
+          <h2 class="trend-title">Year over Year Attendance</h2>
+          <p class="trend-subtitle">Average attendance rate by grade level, per academic year</p>
+        </div>
+        <div class="trend-chart-wrap yoy-chart-wrap">
+          <canvas id="yoyChart"></canvas>
+        </div>
+        <p id="yoyEmpty" class="program-empty hidden"></p>
+        <p id="yoyNote" class="yoy-note"></p>
+      </div>
+    </div>
+
+<!-- Trend popup: opens on tapping any attendance card, showing that
          one center + grade band's attendance % for every class date on
          file, most recent last. Chart.js renders into the canvas; see
          app.js's openAttendanceTrend(). -->
