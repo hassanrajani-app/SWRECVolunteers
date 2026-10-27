@@ -2457,6 +2457,31 @@ el.gateForm.addEventListener("submit", (e) => {
   // On success, onAuthStateChanged below handles showing the dashboard.
 });
 
+// Google sign-in. Enabling the provider in Firebase is only half of it —
+// this button is what starts the flow. Signing in with Google proves who
+// someone is; what they can see is still decided by their row in the
+// Coordinators sheet (an unlisted Google account gets "not provisioned").
+const googleSignInBtn = document.getElementById("googleSignInBtn");
+if (googleSignInBtn) {
+  googleSignInBtn.addEventListener("click", () => {
+    el.gateError.classList.add("hidden");
+    el.gateInfo.classList.add("hidden");
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    auth.signInWithPopup(provider).catch((err) => {
+      if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") return;
+      if (err.code === "auth/popup-blocked") {
+        auth.signInWithRedirect(provider);
+        return;
+      }
+      el.gateError.textContent = err.code === "auth/unauthorized-domain"
+        ? "This site's address isn't authorized for Google sign-in yet. Ask the admin to add it in Firebase."
+        : "Couldn't sign in with Google — please try again.";
+      el.gateError.classList.remove("hidden");
+    });
+  });
+}
+
 // Self-service password reset — lets a coordinator recover access on
 // their own after the one-time account setup in the Firebase console
 // (see README.md), instead of ever having to ask for a new password.
