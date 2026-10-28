@@ -74,8 +74,6 @@ let currentPage = 1;
 
 const el = {
   stateMessage: document.getElementById("stateMessage"),
-  statsToggleBtn: document.getElementById("statsToggleBtn"),
-  statsGrid: document.getElementById("statsGrid"),
   searchInput: document.getElementById("searchInput"),
   countLabel: document.getElementById("countLabel"),
   refreshBtn: document.getElementById("refreshBtn"),
@@ -86,6 +84,9 @@ const el = {
   pagination: document.getElementById("pagination"),
   volTable: document.getElementById("volTable"),
   overlay: document.getElementById("detailOverlay"),
+  detailPrevBtn: document.getElementById("detailPrevBtn"),
+  detailNextBtn: document.getElementById("detailNextBtn"),
+  detailNavCount: document.getElementById("detailNavCount"),
   closeDetail: document.getElementById("closeDetail"),
   editDetailBtn: document.getElementById("editDetailBtn"),
   detailPhoto: document.getElementById("detailPhoto"),
@@ -95,13 +96,6 @@ const el = {
   detailEditActions: document.getElementById("detailEditActions"),
   cancelEditBtn: document.getElementById("cancelEditBtn"),
   saveEditBtn: document.getElementById("saveEditBtn"),
-  statTotal: document.getElementById("statTotal"),
-  statAgeBreakdown: document.getElementById("statAgeBreakdown"),
-  statCountryBreakdown: document.getElementById("statCountryBreakdown"),
-  statGenderBreakdown: document.getElementById("statGenderBreakdown"),
-  statEducationBreakdown: document.getElementById("statEducationBreakdown"),
-  statOccupationBreakdown: document.getElementById("statOccupationBreakdown"),
-  statStudiesUSABreakdown: document.getElementById("statStudiesUSABreakdown"),
   passwordGate: document.getElementById("passwordGate"),
   hubRoot: document.getElementById("hubRoot"),
   dashboardRoot: document.getElementById("dashboardRoot"),
@@ -261,128 +255,6 @@ function withComputed(list) {
 // a plain array) until overwritten by the next live fetch.
 function cacheKeyFor(user) {
   return "sw-re-volunteers-cache-v4-" + user.uid;
-}
-
-// ===== Stats tiles =====
-// Always computed off the full roster (not the current filters) — these
-// are meant as an at-a-glance overview of everyone, not the filtered view.
-
-// Renders a "top N with bars" breakdown into any of the stat-breakdown
-// containers. Shared by Country of Birth and Gender Split so both stay
-// visually and behaviorally consistent.
-// `order`: for breakdowns with a natural sequence (age brackets) rather
-// than "most common first" (country, occupation, etc.) — pass the exact
-// category order to use instead of sorting by count. Every category in
-// `order` is shown even at a count of 0, so a bracket with nobody in it
-// still reads as "zero" rather than silently vanishing.
-function renderBreakdown(container, counts, { maxItems = 6, unitLabel = "", order = null } = {}) {
-  let top, rest;
-  if (order) {
-    top = order.map((key) => [key, counts[key] || 0]);
-    rest = [];
-  } else {
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    top = sorted.slice(0, maxItems);
-    rest = sorted.slice(maxItems);
-  }
-  const maxCount = top.reduce((m, [, c]) => Math.max(m, c), 0);
-
-  if (top.length === 0 || maxCount === 0) {
-    container.innerHTML = '<p class="breakdown-empty">No data yet</p>';
-    return;
-  }
-
-  container.innerHTML =
-    top
-      .map(([name, count]) => {
-        const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
-        return `<div class="breakdown-row">
-          <div class="breakdown-row-top">
-            <span class="breakdown-label">${escapeHtml(name)}</span>
-            <span class="breakdown-count">${count}</span>
-          </div>
-          <div class="breakdown-bar-track"><div class="breakdown-bar-fill" style="width:${pct}%"></div></div>
-        </div>`;
-      })
-      .join("") +
-    (rest.length ? `<p class="breakdown-more">+${rest.length} more${unitLabel ? " " + unitLabel + (rest.length === 1 ? "" : "s") : ""}</p>` : "");
-}
-
-function countBy(list, getValue) {
-  const counts = {};
-  list.forEach((v) => {
-    const raw = getValue(v);
-    const key = raw && String(raw).trim() ? String(raw).trim() : "Not specified";
-    counts[key] = (counts[key] || 0) + 1;
-  });
-  return counts;
-}
-
-// The "Were your studies completed in the USA?" question's full answer
-// text (e.g. "Partially (some studies in USA, some abroad)") is too long
-// for a tile — collapse it down to just Yes / No / Partially.
-function normalizeStudiesInUSA(value) {
-  const v = (value || "").trim().toLowerCase();
-  if (!v) return "";
-  if (v.startsWith("yes")) return "Yes";
-  if (v.startsWith("no")) return "No";
-  if (v.startsWith("partially")) return "Partially";
-  return value; // unexpected wording — show as-is rather than hide it
-}
-
-// Buckets a computed age into a fixed range for the Age Breakdown tile.
-// 40 itself lands in "36 - 40" (not "40+") so the ranges don't overlap.
-const AGE_BUCKET_ORDER = ["16 - 19", "20 - 25", "26 - 30", "31 - 35", "36 - 40", "40+"];
-function ageBucket(age) {
-  if (age == null) return "Not specified";
-  if (age < 16) return "Under 16";
-  if (age <= 19) return "16 - 19";
-  if (age <= 25) return "20 - 25";
-  if (age <= 30) return "26 - 30";
-  if (age <= 35) return "31 - 35";
-  if (age <= 40) return "36 - 40";
-  return "40+";
-}
-
-function computeStats() {
-  const total = volunteers.length;
-  el.statTotal.textContent = total.toLocaleString();
-
-  // The core 6 brackets always show (even at 0); the two edge-case
-  // buckets only appear if someone actually falls in them, so they don't
-  // clutter the tile in the common case where every volunteer is an
-  // adult with a valid DOB on file.
-  const ageCounts = countBy(volunteers, (v) => ageBucket(v.age));
-  const ageOrder = [];
-  if (ageCounts["Under 16"]) ageOrder.push("Under 16");
-  ageOrder.push(...AGE_BUCKET_ORDER);
-  if (ageCounts["Not specified"]) ageOrder.push("Not specified");
-  renderBreakdown(el.statAgeBreakdown, ageCounts, { order: ageOrder });
-
-  renderBreakdown(el.statCountryBreakdown, countBy(volunteers, (v) => v.countryOfBirth), {
-    maxItems: 5,
-    unitLabel: "country",
-  });
-
-  renderBreakdown(el.statGenderBreakdown, countBy(volunteers, (v) => v.gender), {
-    maxItems: 5,
-    unitLabel: "",
-  });
-
-  renderBreakdown(el.statEducationBreakdown, countBy(volunteers, (v) => v.education), {
-    maxItems: 5,
-    unitLabel: "level",
-  });
-
-  renderBreakdown(el.statOccupationBreakdown, countBy(volunteers, (v) => v.occupation), {
-    maxItems: 5,
-    unitLabel: "type",
-  });
-
-  renderBreakdown(el.statStudiesUSABreakdown, countBy(volunteers, (v) => normalizeStudiesInUSA(v.studiesInUSA)), {
-    maxItems: 5,
-    unitLabel: "",
-  });
 }
 
 // ===== Load data (stale-while-revalidate) =====
@@ -585,7 +457,6 @@ async function loadVolunteers({ forceFresh = false } = {}) {
         if (cachedData.me && cachedData.me.name) el.signedInAs.textContent = cachedData.me.name;
         if (cachedData.me) canEdit = !!cachedData.me.canEdit;
         refreshFilterPanels();
-        computeStats();
         render();
         el.stateMessage.classList.add("hidden");
         el.volTable.classList.remove("hidden");
@@ -629,7 +500,6 @@ async function loadVolunteers({ forceFresh = false } = {}) {
     }
 
     refreshFilterPanels();
-    computeStats();
     if (currentPage === 1 || !paintedFromCache) currentPage = 1;
     render();
     el.stateMessage.classList.add("hidden");
@@ -954,6 +824,15 @@ const DETAIL_FIELDS = [
   { key: "sevaHistory", label: "Seva History Within RE", multiline: true },
 ];
 
+// How the detail screen groups its fields. Keys are DETAIL_FIELDS keys, plus
+// the read-only "age" and "submittedAt" (view mode only).
+const DETAIL_SECTIONS = [
+  { title: "Service", keys: ["status", "servingProgram", "gradeLevel", "jamatkhana", "submittedAt"] },
+  { title: "Contact & Personal", keys: ["contact", "email", "dob", "age", "gender", "countryOfBirth", "yearMovedToUS", "tshirtSize"] },
+  { title: "Education & Work", keys: ["education", "studiesInUSA", "occupation"] },
+  { title: "Seva", keys: ["sevaOutside", "sevaHistory"] },
+];
+
 // Shown above the grid, inside the photo/name header — same treatment
 // (an ordinary <input>), just styled larger to match the header's look.
 const HEADER_EDIT_FIELDS = [
@@ -978,6 +857,7 @@ function openDetail(id) {
 
   renderDetailView(v);
   el.overlay.classList.remove("hidden");
+  updateDetailNav();
   history.replaceState(null, "", `#${id}`);
 }
 
@@ -991,28 +871,36 @@ function renderDetailView(v) {
     <p class="detail-subtitle">${escapeHtml(v.center || "")}</p>
   `;
 
-  const fields = [
-    ["Age", v.age != null ? v.age : ""],
-    ...DETAIL_FIELDS.map((f) => [f.label, v[f.key]]),
-    ["Submitted", v.submittedAt],
-  ];
+  const byKey = {};
+  DETAIL_FIELDS.forEach((f) => { byKey[f.key] = f; });
+  // Read-only extras that aren't editable fields.
+  const extras = { age: { label: "Age", value: v.age != null ? v.age : "" }, submittedAt: { label: "Submitted", value: v.submittedAt } };
 
-  el.detailFields.innerHTML = fields
-    .filter(([, val]) => val !== "" && val != null)
-    .map(([label, val]) => {
-      let dd;
-      if (label === "Status") dd = statusBadgeHtml(val);
-      else if (label === "Program") dd = `<span class="program-category-pill">${escapeHtml(val)}</span>`;
-      else dd = escapeHtml(val);
-      return `<dt>${escapeHtml(label)}</dt><dd>${dd}</dd>`;
-    })
-    .join("");
+  el.detailFields.innerHTML = DETAIL_SECTIONS.map((sec) => {
+    const items = sec.keys
+      .map((key) => {
+        const f = byKey[key];
+        const label = f ? f.label : extras[key].label;
+        const val = f ? v[key] : extras[key].value;
+        if (val === "" || val == null) return "";
+        let dd;
+        if (label === "Status") dd = statusBadgeHtml(val);
+        else if (label === "Program") dd = `<span class="program-category-pill">${escapeHtml(val)}</span>`;
+        else dd = escapeHtml(val);
+        const wide = f && f.multiline ? " detail-item-wide" : "";
+        return `<div class="detail-item${wide}"><dt>${escapeHtml(label)}</dt><dd>${dd}</dd></div>`;
+      })
+      .join("");
+    if (!items) return "";
+    return `<section class="detail-section"><h3>${escapeHtml(sec.title)}</h3><dl class="detail-section-grid">${items}</dl></section>`;
+  }).join("");
 
   // Only coordinators with Edit Access = YES in the Coordinators sheet
   // ever see the pencil — this is a convenience for them, not the actual
   // security boundary, which is enforced server-side in doPost.
   el.editDetailBtn.classList.toggle("hidden", !canEdit);
   el.detailEditActions.classList.add("hidden");
+  updateDetailNav();
   el.detailSaveError.classList.add("hidden");
 }
 
@@ -1024,7 +912,7 @@ function renderDetailEdit() {
     (f) => `<label class="edit-field"><span>${escapeHtml(f.label)}</span><input id="edit_${f.key}" type="text" value="${escapeAttr(v[f.key] || "")}" /></label>`
   ).join("");
 
-  el.detailFields.innerHTML = DETAIL_FIELDS.map((f) => {
+  const editField = (f) => {
     let input;
     if (f.type === "select") {
       // options can be a fixed array (Status) or a function returning the
@@ -1049,11 +937,19 @@ function renderDetailEdit() {
     } else {
       input = `<input id="edit_${f.key}" type="text" value="${escapeAttr(v[f.key] || "")}" />`;
     }
-    return `<label class="edit-field">${escapeHtml(f.label)}${input}</label>`;
+    return `<label class="edit-field${f.multiline ? " detail-item-wide" : ""}">${escapeHtml(f.label)}${input}</label>`;
+  };
+  const editByKey = {};
+  DETAIL_FIELDS.forEach((f) => { editByKey[f.key] = f; });
+  el.detailFields.innerHTML = DETAIL_SECTIONS.map((sec) => {
+    const fields = sec.keys.filter((k) => editByKey[k]).map((k) => editField(editByKey[k])).join("");
+    if (!fields) return "";
+    return `<section class="detail-section"><h3>${escapeHtml(sec.title)}</h3><div class="detail-section-grid">${fields}</div></section>`;
   }).join("");
 
   el.editDetailBtn.classList.add("hidden");
   el.detailEditActions.classList.remove("hidden");
+  updateDetailNav();
   el.detailSaveError.classList.add("hidden");
 }
 
@@ -1100,7 +996,6 @@ async function saveDetailEdit() {
     }
 
     refreshFilterPanels();
-    computeStats();
     render();
     detailEditing = false;
     renderDetailView();
@@ -1111,6 +1006,33 @@ async function saveDetailEdit() {
     el.saveEditBtn.disabled = false;
     el.saveEditBtn.textContent = "Save Changes";
   }
+}
+
+// Previous / next volunteer, in exactly the order the table shows them
+// (current filters + sort, across all pages). With no filters that's the
+// whole roster. Disabled while editing so unsaved changes can't be lost.
+function detailNavList() {
+  return sortRows(getFiltered());
+}
+
+function updateDetailNav() {
+  const list = detailNavList();
+  const idx = list.findIndex((x) => x.id === currentDetailId);
+  const known = idx > -1;
+  el.detailNavCount.textContent = known ? `${idx + 1} of ${list.length}` : `${list.length} in list`;
+  el.detailPrevBtn.disabled = detailEditing || !known || idx <= 0;
+  el.detailNextBtn.disabled = detailEditing || !known || idx >= list.length - 1;
+}
+
+function stepDetail(delta) {
+  if (detailEditing) return;
+  const list = detailNavList();
+  const idx = list.findIndex((x) => x.id === currentDetailId);
+  const target = list[idx + delta];
+  if (idx === -1 || !target) return;
+  openDetail(target.id);
+  const body = document.getElementById("detailFields");
+  if (body) body.scrollTop = 0;
 }
 
 function closeDetail() {
@@ -2344,27 +2266,6 @@ el.adminAddBtn.addEventListener("click", addCoordinators);
 
 // ===== Event wiring =====
 
-// Collapsible analysis section — collapsing it lets the table sit higher
-// on the page. Remembered per-browser so it stays how you left it.
-const STATS_COLLAPSED_KEY = "sw-re-stats-collapsed";
-function setStatsCollapsed(collapsed) {
-  el.statsGrid.classList.toggle("hidden", collapsed);
-  el.statsToggleBtn.setAttribute("aria-expanded", String(!collapsed));
-  try {
-    localStorage.setItem(STATS_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch (e) {
-    /* ignore */
-  }
-}
-el.statsToggleBtn.addEventListener("click", () => {
-  setStatsCollapsed(!el.statsGrid.classList.contains("hidden"));
-});
-try {
-  setStatsCollapsed(localStorage.getItem(STATS_COLLAPSED_KEY) === "1");
-} catch (e) {
-  /* ignore */
-}
-
 el.searchInput.addEventListener("input", () => {
   filters.search = el.searchInput.value;
   applyFiltersAndRender();
@@ -2408,7 +2309,16 @@ el.overlay.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDetail();
+  // Arrow keys step through volunteers, unless the person is typing in a field.
+  if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !el.overlay.classList.contains("hidden")) {
+    const t = e.target;
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    e.preventDefault();
+    stepDetail(e.key === "ArrowRight" ? 1 : -1);
+  }
 });
+el.detailPrevBtn.addEventListener("click", () => stepDetail(-1));
+el.detailNextBtn.addEventListener("click", () => stepDetail(1));
 
 el.editDetailBtn.addEventListener("click", () => {
   if (!canEdit) return; // defense in depth — button should already be hidden
