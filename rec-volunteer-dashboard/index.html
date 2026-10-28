@@ -246,83 +246,6 @@
 
   <main class="container">
 
-    <button type="button" class="stats-toggle" id="statsToggleBtn" aria-expanded="true" aria-controls="statsGrid">
-      <span class="stats-toggle-label">Analysis</span>
-      <span class="stats-toggle-icon">▾</span>
-    </button>
-
-    <section class="stats-grid" id="statsGrid">
-      <div class="stat-card stat-navy">
-        <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 5 18.5V20"/><circle cx="9.5" cy="8.5" r="3.5"/><path d="M19.5 20v-1.3a3.2 3.2 0 0 0-2.2-3"/><path d="M15.2 5.2a3.2 3.2 0 0 1 0 6.1"/></svg>
-        </div>
-        <div class="stat-body">
-          <p class="stat-label">Total Volunteers</p>
-          <p class="stat-value" id="statTotal">—</p>
-        </div>
-      </div>
-
-      <div class="stat-card stat-gender stat-card-wide">
-        <div class="stat-card-wide-header">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5V12l6 3.2"/></svg>
-          </div>
-          <p class="stat-label">Gender Split</p>
-        </div>
-        <div class="stat-breakdown" id="statGenderBreakdown"></div>
-      </div>
-
-      <div class="stat-card stat-blue stat-card-wide">
-        <div class="stat-card-wide-header">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-          </div>
-          <p class="stat-label">Education in the US</p>
-        </div>
-        <div class="stat-breakdown" id="statStudiesUSABreakdown"></div>
-      </div>
-
-      <div class="stat-card stat-brown stat-card-wide">
-        <div class="stat-card-wide-header">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.3 2.3 3.6 5.3 3.6 8.5s-1.3 6.2-3.6 8.5c-2.3-2.3-3.6-5.3-3.6-8.5S9.7 5.8 12 3.5Z"/></svg>
-          </div>
-          <p class="stat-label">Country of Birth</p>
-        </div>
-        <div class="stat-breakdown" id="statCountryBreakdown"></div>
-      </div>
-
-      <div class="stat-card stat-navy stat-card-wide">
-        <div class="stat-card-wide-header">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 3 8.5l9 4.5 9-4.5L12 4Z"/><path d="M7 10.8v4.4c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.4"/><path d="M20.5 8.5v5.5"/></svg>
-          </div>
-          <p class="stat-label">Education Level</p>
-        </div>
-        <div class="stat-breakdown" id="statEducationBreakdown"></div>
-      </div>
-
-      <div class="stat-card stat-blue stat-card-wide">
-        <div class="stat-card-wide-header">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="11" rx="2"/><path d="M8.5 8V6.3A2.3 2.3 0 0 1 10.8 4h2.4A2.3 2.3 0 0 1 15.5 6.3V8"/><path d="M3.5 13h17"/></svg>
-          </div>
-          <p class="stat-label">Occupation</p>
-        </div>
-        <div class="stat-breakdown" id="statOccupationBreakdown"></div>
-      </div>
-
-      <div class="stat-card stat-brown stat-card-wide">
-        <div class="stat-card-wide-header">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 10h16"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M12 14.2v3.2"/><path d="M10.4 15.8h3.2"/></svg>
-          </div>
-          <p class="stat-label">Age Breakdown</p>
-        </div>
-        <div class="stat-breakdown" id="statAgeBreakdown"></div>
-      </div>
-    </section>
-
     <section class="toolbar">
       <input id="searchInput" type="text" placeholder="Search by name or email..." />
 
@@ -396,8 +319,13 @@
 
   <!-- Detail overlay -->
   <div id="detailOverlay" class="overlay hidden">
-    <div class="detail-card">
+    <div class="detail-card volunteer-detail">
       <button id="closeDetail" class="close-btn" aria-label="Close">✕</button>
+      <div class="detail-nav" id="detailNav">
+        <button type="button" id="detailPrevBtn" class="detail-nav-btn" title="Previous volunteer (←)" aria-label="Previous volunteer">‹</button>
+        <span id="detailNavCount" class="detail-nav-count"></span>
+        <button type="button" id="detailNextBtn" class="detail-nav-btn" title="Next volunteer (→)" aria-label="Next volunteer">›</button>
+      </div>
       <button type="button" id="editDetailBtn" class="edit-btn" title="Edit this record" aria-label="Edit this record">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M13.5 8.5l2 2"/></svg>
       </button>
@@ -406,7 +334,7 @@
         <div id="detailHeaderText"></div>
       </div>
       <p id="detailSaveError" class="detail-save-error hidden"></p>
-      <dl class="detail-grid" id="detailFields"></dl>
+      <div class="detail-sections" id="detailFields"></div>
       <div class="detail-edit-actions hidden" id="detailEditActions">
         <button type="button" class="ghost-btn" id="cancelEditBtn">Cancel</button>
         <button type="button" class="export-btn" id="saveEditBtn">Save Changes</button>
