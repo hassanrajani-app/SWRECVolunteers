@@ -97,6 +97,13 @@
             <h2 class="module-title">Volunteer Dashboard</h2>
           </button>
 
+          <button type="button" class="module-card module-navy hidden" id="moduleStudentsBtn" data-module="StudentProfile">
+            <div class="module-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5Z"/><path d="M7 12v4.2c0 1.2 2.2 2.8 5 2.8s5-1.6 5-2.8V12"/><path d="M21 9.5V15"/></svg>
+            </div>
+            <h2 class="module-title">STEP Student Profile</h2>
+          </button>
+
         </div>
       </div>
 
@@ -602,6 +609,105 @@
   </main>
 
   </div><!-- /#attendanceRoot -->
+
+  <!-- STEP Student Profile: Secondary student intake answers from the
+       Student_Profile tab. Separate data and permission from the volunteer
+       roster (Admin, or Board Members the Admin ticked it for; never
+       Principals). Read-only. -->
+  <div id="studentsRoot" class="hidden">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button type="button" id="stuBackBtn" class="back-btn" title="Back to modules" aria-label="Back to modules">←</button>
+        <span class="brand-mark">SW</span>
+        <div class="brand-text">
+          <h1>Southwest RE Centers</h1>
+          <p>STEP Student Profile</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="stuRefreshBtn" class="refresh-btn" title="Reload from Google Sheet"><span class="refresh-icon">⟳</span> Refresh</button>
+        <button id="stuLockBtn" class="refresh-btn" title="Sign out">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="toolbar">
+      <input id="stuSearchInput" type="text" placeholder="Search by name, email or high school..." />
+      <div class="multiselect" id="stuCenterMS">
+        <button type="button" class="ms-btn" id="stuCenterMSBtn">RE Center<span class="ms-badge hidden" id="stuCenterMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuCenterMSPanel"></div>
+      </div>
+      <div class="multiselect" id="stuGradeMS">
+        <button type="button" class="ms-btn" id="stuGradeMSBtn">Grade<span class="ms-badge hidden" id="stuGradeMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuGradeMSPanel"></div>
+      </div>
+      <div class="multiselect" id="stuPlansMS">
+        <button type="button" class="ms-btn" id="stuPlansMSBtn">After High School<span class="ms-badge hidden" id="stuPlansMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuPlansMSPanel"></div>
+      </div>
+      <div class="multiselect" id="stuInterestsMS">
+        <button type="button" class="ms-btn" id="stuInterestsMSBtn">Interested In<span class="ms-badge hidden" id="stuInterestsMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuInterestsMSPanel"></div>
+      </div>
+      <div class="multiselect" id="stuJamatkhanaMS">
+        <button type="button" class="ms-btn" id="stuJamatkhanaMSBtn">Jamatkhana<span class="ms-badge hidden" id="stuJamatkhanaMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuJamatkhanaMSPanel"></div>
+      </div>
+      <div class="multiselect" id="stuHighSchoolMS">
+        <button type="button" class="ms-btn" id="stuHighSchoolMSBtn">High School<span class="ms-badge hidden" id="stuHighSchoolMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuHighSchoolMSPanel"></div>
+      </div>
+      <div class="multiselect" id="stuActivitiesMS">
+        <button type="button" class="ms-btn" id="stuActivitiesMSBtn">Jamati Activity<span class="ms-badge hidden" id="stuActivitiesMSBadge">0</span><span class="chev">▾</span></button>
+        <div class="ms-panel hidden" id="stuActivitiesMSPanel"></div>
+      </div>
+      <button id="stuClearBtn" class="ghost-btn">Clear filters</button>
+      <button id="stuExportBtn" class="export-btn">⬇ Export to Excel</button>
+    </section>
+
+    <section class="table-meta">
+      <span id="stuCountLabel" class="count-label"></span>
+    </section>
+
+    <section id="stuStateMessage" class="state-message">Loading students…</section>
+
+    <div class="table-wrap">
+      <table class="vol-table hidden" id="stuTable">
+        <thead>
+          <tr>
+            <th data-key="fullName">Name <span class="sort-ind"></span></th>
+            <th data-key="grade">Grade <span class="sort-ind"></span></th>
+            <th data-key="center">RE Center <span class="sort-ind"></span></th>
+            <th data-key="highSchool">High School <span class="sort-ind"></span></th>
+            <th data-key="plans">After High School <span class="sort-ind"></span></th>
+            <th>Interested In</th>
+          </tr>
+        </thead>
+        <tbody id="stuTableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="stuPagination"></div>
+  </main>
+
+  <div id="studentOverlay" class="overlay hidden">
+    <div class="detail-card volunteer-detail">
+      <button id="stuCloseDetail" class="close-btn" aria-label="Close">✕</button>
+      <div class="detail-nav">
+        <button type="button" id="stuDetailPrevBtn" class="detail-nav-btn" title="Previous student (←)" aria-label="Previous student">‹</button>
+        <span id="stuDetailNavCount" class="detail-nav-count"></span>
+        <button type="button" id="stuDetailNextBtn" class="detail-nav-btn" title="Next student (→)" aria-label="Next student">›</button>
+      </div>
+      <div class="detail-header">
+        <img id="stuDetailPhoto" class="detail-photo" src="" alt="Headshot" />
+        <div id="stuDetailHeaderText"></div>
+      </div>
+      <div class="detail-sections" id="stuDetailFields"></div>
+    </div>
+  </div>
+  </div><!-- /#studentsRoot -->
+
 
   <!-- Admin screen: add, edit, or remove who can sign in, which modules
        they can see, and (for the Volunteer Dashboard specifically)
