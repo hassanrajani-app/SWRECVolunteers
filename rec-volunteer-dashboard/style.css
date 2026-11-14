@@ -403,7 +403,8 @@ body {
   margin-bottom: 14px;
 }
 
-#searchInput {
+#searchInput,
+#stuSearchInput {
   flex: 1;
   min-width: 220px;
   padding: 9px 12px;
@@ -412,7 +413,7 @@ body {
   font-size: 15.5px;
   background: var(--card);
 }
-#searchInput:focus, .ms-btn:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+#searchInput:focus, #stuSearchInput:focus, .ms-btn:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
 
 .ghost-btn {
   padding: 9px 14px;
