@@ -1721,3 +1721,10 @@ body {
   .detail-nav { top: auto; bottom: 62px; right: 12px; }
   .volunteer-detail .detail-sections { padding-top: 16px; }
 }
+
+/* ===== STEP Student Profile ===== */
+#studentOverlay { padding: 2vh 2vw; }
+.answer-pill { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; }
+.answer-yes { background: #e3f5ea; color: #1f7a4d; }
+.answer-maybe { background: #fdf3da; color: #8a6414; }
+.answer-no { background: #eef1f5; color: var(--text-muted); }
