@@ -1796,11 +1796,7 @@ const studentFilters = {
   search: "",
   centers: new Set(),
   grades: new Set(),
-  highSchools: new Set(),
   jamatkhanas: new Set(),
-  plans: new Set(),
-  interests: new Set(),
-  activities: new Set(),
 };
 const studentOptions = { centers: [], grades: [], highSchools: [], jamatkhanas: [], plans: [], activities: [] };
 const studentMS = {};
@@ -1847,11 +1843,7 @@ function refreshStudentOptions() {
     const defs = [
       ["Center", "centers", () => studentOptions.centers],
       ["Grade", "grades", () => studentOptions.grades],
-      ["Plans", "plans", () => studentOptions.plans],
       ["Jamatkhana", "jamatkhanas", () => studentOptions.jamatkhanas],
-      ["HighSchool", "highSchools", () => studentOptions.highSchools],
-      ["Interests", "interests", () => STUDENT_INTERESTS.map((i) => i.label)],
-      ["Activities", "activities", () => studentOptions.activities],
     ];
     defs.forEach(([id, setKey, getOptions]) => {
       studentMS[id] = setupMultiSelect({
@@ -1870,14 +1862,7 @@ function getFilteredStudents() {
   return students.filter((s) => {
     if (f.centers.size && !f.centers.has(s.center)) return false;
     if (f.grades.size && !f.grades.has(s.grade)) return false;
-    if (f.highSchools.size && !f.highSchools.has(s.highSchool)) return false;
     if (f.jamatkhanas.size && !f.jamatkhanas.has(s.jamatkhana)) return false;
-    if (f.plans.size && !f.plans.has(s.plans)) return false;
-    if (f.activities.size && !(s.activities || []).some((a) => f.activities.has(a))) return false;
-    if (f.interests.size) {
-      const labels = studentInterestTags(s).map((i) => i.label);
-      if (!labels.some((l) => f.interests.has(l))) return false;
-    }
     if (q && !`${s.fullName} ${s.email} ${s.highSchool}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -2084,7 +2069,7 @@ el.stuSearchInput.addEventListener("input", () => { studentFilters.search = el.s
 el.stuClearBtn.addEventListener("click", () => {
   studentFilters.search = "";
   el.stuSearchInput.value = "";
-  ["centers", "grades", "highSchools", "jamatkhanas", "plans", "interests", "activities"].forEach((k) => studentFilters[k].clear());
+  ["centers", "grades", "jamatkhanas"].forEach((k) => studentFilters[k].clear());
   Object.values(studentMS).forEach((c) => { c.updateBadge(); c.refreshIfOpen(); });
   studentPage = 1;
   renderStudents();
