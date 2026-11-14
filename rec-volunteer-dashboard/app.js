@@ -170,6 +170,27 @@ const el = {
   pmpRoot: document.getElementById("pmpRoot"),
   backToHubBtnPmp: document.getElementById("backToHubBtnPmp"),
   adminRoot: document.getElementById("adminRoot"),
+  studentsRoot: document.getElementById("studentsRoot"),
+  moduleStudentsBtn: document.getElementById("moduleStudentsBtn"),
+  stuBackBtn: document.getElementById("stuBackBtn"),
+  stuRefreshBtn: document.getElementById("stuRefreshBtn"),
+  stuLockBtn: document.getElementById("stuLockBtn"),
+  stuSearchInput: document.getElementById("stuSearchInput"),
+  stuClearBtn: document.getElementById("stuClearBtn"),
+  stuExportBtn: document.getElementById("stuExportBtn"),
+  stuCountLabel: document.getElementById("stuCountLabel"),
+  stuStateMessage: document.getElementById("stuStateMessage"),
+  stuTable: document.getElementById("stuTable"),
+  stuTableBody: document.getElementById("stuTableBody"),
+  stuPagination: document.getElementById("stuPagination"),
+  stuOverlay: document.getElementById("studentOverlay"),
+  stuCloseDetail: document.getElementById("stuCloseDetail"),
+  stuDetailPhoto: document.getElementById("stuDetailPhoto"),
+  stuDetailHeaderText: document.getElementById("stuDetailHeaderText"),
+  stuDetailFields: document.getElementById("stuDetailFields"),
+  stuDetailPrevBtn: document.getElementById("stuDetailPrevBtn"),
+  stuDetailNextBtn: document.getElementById("stuDetailNextBtn"),
+  stuDetailNavCount: document.getElementById("stuDetailNavCount"),
   backToHubBtnAdmin: document.getElementById("backToHubBtnAdmin"),
   adminSignedInAs: document.getElementById("adminSignedInAs"),
   adminRefreshBtn: document.getElementById("adminRefreshBtn"),
@@ -1758,6 +1779,339 @@ async function loadAttendance({ forceFresh = false } = {}) {
   }
 }
 
+// ===== STEP Student Profile module =====
+// Secondary student intake answers (Student_Profile tab). Completely
+// separate data and permission from the volunteer roster: only Admin, or a
+// Board Member the Admin ticked it for, can load it (enforced server-side in
+// Code.gs; the hub tile is just a convenience). Read-only.
+
+let students = [];
+let studentSortKey = "fullName";
+let studentSortDir = "asc";
+let studentPage = 1;
+const STUDENT_PAGE_SIZE = 100;
+let studentCurrentId = null;
+let studentListenersBound = false;
+const studentFilters = {
+  search: "",
+  centers: new Set(),
+  grades: new Set(),
+  highSchools: new Set(),
+  jamatkhanas: new Set(),
+  plans: new Set(),
+  interests: new Set(),
+  activities: new Set(),
+};
+const studentOptions = { centers: [], grades: [], highSchools: [], jamatkhanas: [], plans: [], activities: [] };
+const studentMS = {};
+
+// Each "interested in" choice maps to one yes/maybe/no answer on the form.
+const STUDENT_INTERESTS = [
+  { label: "Jamati leadership / volunteering", key: "jamatiInterest" },
+  { label: "Retreats / overnight programs", key: "retreats" },
+  { label: "Camp programs (Ginans, Qasidas, Du'a)", key: "camp" },
+  { label: "Career mentorship", key: "mentors" },
+];
+const studentIsYes = (v) => /^\s*yes/i.test(v || "");
+
+function studentCacheKeyFor(user) {
+  return "sw-re-students-cache-v1-" + user.uid;
+}
+
+function studentGradeNum(g) {
+  const n = parseInt(String(g || "").replace(/[^0-9]/g, ""), 10);
+  return isNaN(n) ? 99 : n;
+}
+
+function studentInterestTags(st) {
+  return STUDENT_INTERESTS.filter((i) => studentIsYes(st[i.key]));
+}
+
+function answerPillHtml(value) {
+  if (!value) return "";
+  const cls = studentIsYes(value) ? "answer-yes" : /^\s*maybe/i.test(value) ? "answer-maybe" : "answer-no";
+  return `<span class="answer-pill ${cls}">${escapeHtml(value)}</span>`;
+}
+
+function refreshStudentOptions() {
+  const uniq = (fn) => [...new Set(students.flatMap((s) => [].concat(fn(s))).filter(Boolean))];
+  studentOptions.centers = uniq((s) => s.center).sort();
+  studentOptions.grades = uniq((s) => s.grade).sort((a, b) => studentGradeNum(a) - studentGradeNum(b));
+  studentOptions.highSchools = uniq((s) => s.highSchool).sort();
+  studentOptions.jamatkhanas = uniq((s) => s.jamatkhana).sort();
+  studentOptions.plans = uniq((s) => s.plans).sort();
+  studentOptions.activities = uniq((s) => s.activities || []).sort();
+
+  if (!studentListenersBound) {
+    studentListenersBound = true;
+    const defs = [
+      ["Center", "centers", () => studentOptions.centers],
+      ["Grade", "grades", () => studentOptions.grades],
+      ["Plans", "plans", () => studentOptions.plans],
+      ["Jamatkhana", "jamatkhanas", () => studentOptions.jamatkhanas],
+      ["HighSchool", "highSchools", () => studentOptions.highSchools],
+      ["Interests", "interests", () => STUDENT_INTERESTS.map((i) => i.label)],
+      ["Activities", "activities", () => studentOptions.activities],
+    ];
+    defs.forEach(([id, setKey, getOptions]) => {
+      studentMS[id] = setupMultiSelect({
+        btnId: "stu" + id + "MSBtn", panelId: "stu" + id + "MSPanel", badgeId: "stu" + id + "MSBadge",
+        getOptions, selectedSet: studentFilters[setKey], onChange: () => { studentPage = 1; renderStudents(); },
+      });
+    });
+  } else {
+    Object.values(studentMS).forEach((c) => c.refreshIfOpen());
+  }
+}
+
+function getFilteredStudents() {
+  const q = studentFilters.search.trim().toLowerCase();
+  const f = studentFilters;
+  return students.filter((s) => {
+    if (f.centers.size && !f.centers.has(s.center)) return false;
+    if (f.grades.size && !f.grades.has(s.grade)) return false;
+    if (f.highSchools.size && !f.highSchools.has(s.highSchool)) return false;
+    if (f.jamatkhanas.size && !f.jamatkhanas.has(s.jamatkhana)) return false;
+    if (f.plans.size && !f.plans.has(s.plans)) return false;
+    if (f.activities.size && !(s.activities || []).some((a) => f.activities.has(a))) return false;
+    if (f.interests.size) {
+      const labels = studentInterestTags(s).map((i) => i.label);
+      if (!labels.some((l) => f.interests.has(l))) return false;
+    }
+    if (q && !`${s.fullName} ${s.email} ${s.highSchool}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function sortedStudents() {
+  const dir = studentSortDir === "asc" ? 1 : -1;
+  return [...getFilteredStudents()].sort((a, b) => {
+    if (studentSortKey === "grade") return (studentGradeNum(a.grade) - studentGradeNum(b.grade)) * dir;
+    if (studentSortKey === "age") return ((a.age ?? -1) - (b.age ?? -1)) * dir;
+    const av = String(a[studentSortKey] || "").toLowerCase();
+    const bv = String(b[studentSortKey] || "").toLowerCase();
+    return av < bv ? -1 * dir : av > bv ? 1 * dir : 0;
+  });
+}
+
+function renderStudents() {
+  const list = sortedStudents();
+  el.stuCountLabel.textContent = `${list.length} student${list.length === 1 ? "" : "s"}`;
+  document.querySelectorAll("#stuTable thead th").forEach((th) => {
+    const ind = th.querySelector(".sort-ind");
+    if (ind) ind.textContent = th.dataset.key === studentSortKey ? (studentSortDir === "asc" ? "▲" : "▼") : "";
+  });
+
+  if (list.length === 0) {
+    el.stuTableBody.innerHTML = "";
+    el.stuPagination.innerHTML = "";
+    el.stuStateMessage.classList.remove("hidden");
+    el.stuStateMessage.textContent = students.length ? "No students match your filters." : "No student responses yet.";
+    el.stuTable.classList.add("hidden");
+    return;
+  }
+  el.stuStateMessage.classList.add("hidden");
+  el.stuTable.classList.remove("hidden");
+
+  const totalPages = Math.max(1, Math.ceil(list.length / STUDENT_PAGE_SIZE));
+  if (studentPage > totalPages) studentPage = totalPages;
+  const rows = list.slice((studentPage - 1) * STUDENT_PAGE_SIZE, studentPage * STUDENT_PAGE_SIZE);
+
+  el.stuTableBody.innerHTML = rows
+    .map((s) => {
+      const photo = s.photoUrl
+        ? `<img class="row-thumb" src="${escapeAttr(s.photoUrl)}" alt="" onerror="this.outerHTML='<div class=&quot;row-initials&quot;>${initials(s.fullName)}</div>'" />`
+        : `<div class="row-initials">${initials(s.fullName)}</div>`;
+      const tags = studentInterestTags(s).map((i) => `<span class="position-pill">${escapeHtml(i.label.split(" (")[0].split(" / ")[0])}</span>`).join(" ");
+      return `
+        <tr data-id="${escapeAttr(s.id)}">
+          <td data-label="Name"><div class="name-cell">${photo}<span>${escapeHtml(s.fullName)}</span></div></td>
+          <td data-label="Grade">${escapeHtml(s.grade)}</td>
+          <td data-label="RE Center">${escapeHtml(s.center)}</td>
+          <td data-label="High School">${escapeHtml(s.highSchool)}</td>
+          <td data-label="After High School">${escapeHtml(s.plans)}</td>
+          <td data-label="Interested In">${tags || "—"}</td>
+        </tr>`;
+    })
+    .join("");
+  el.stuTableBody.querySelectorAll("tr").forEach((row) => row.addEventListener("click", () => openStudent(row.dataset.id)));
+
+  if (totalPages <= 1) {
+    el.stuPagination.innerHTML = "";
+  } else {
+    el.stuPagination.innerHTML =
+      `<button data-page="prev" ${studentPage === 1 ? "disabled" : ""}>‹ Prev</button>
+       <span>Page ${studentPage} of ${totalPages}</span>
+       <button data-page="next" ${studentPage === totalPages ? "disabled" : ""}>Next ›</button>`;
+    el.stuPagination.querySelectorAll("button").forEach((b) =>
+      b.addEventListener("click", () => {
+        studentPage = b.dataset.page === "prev" ? Math.max(1, studentPage - 1) : Math.min(totalPages, studentPage + 1);
+        renderStudents();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      })
+    );
+  }
+}
+
+async function loadStudents({ forceFresh = false } = {}) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const cacheKey = studentCacheKeyFor(user);
+  let painted = false;
+  if (!forceFresh) {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        students = withComputed(JSON.parse(cached).students || []);
+        refreshStudentOptions();
+        renderStudents();
+        painted = true;
+      }
+    } catch (e) { /* ignore corrupt cache */ }
+  }
+  if (!painted) {
+    el.stuStateMessage.classList.remove("hidden");
+    el.stuStateMessage.textContent = "Loading students…";
+    el.stuTable.classList.add("hidden");
+  }
+
+  el.stuRefreshBtn.classList.add("spinning");
+  try {
+    const idToken = await user.getIdToken();
+    const params = new URLSearchParams({ idToken, resource: "students" });
+    if (forceFresh) params.set("nocache", "1");
+    const data = await fetchJson(APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes("?") ? "&" : "?") + params.toString());
+    if (data && data.error) throw new Error(friendlyAuthError(data.error));
+    students = withComputed(data.students || []);
+    try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch (e) { /* storage full */ }
+    refreshStudentOptions();
+    renderStudents();
+  } catch (err) {
+    el.stuStateMessage.classList.remove("hidden");
+    el.stuStateMessage.textContent = painted
+      ? "Showing saved data — couldn't refresh: " + err.message + " Press Refresh to retry."
+      : "Couldn't load students: " + err.message;
+  } finally {
+    el.stuRefreshBtn.classList.remove("spinning");
+  }
+}
+
+// --- Detail screen (full-screen, same layout as the volunteer profile) ---
+function openStudent(id) {
+  const s = students.find((x) => x.id === id);
+  if (!s) return;
+  studentCurrentId = id;
+  el.stuDetailPhoto.src = s.photoUrl || "";
+  el.stuDetailPhoto.style.display = s.photoUrl ? "block" : "none";
+  el.stuDetailHeaderText.innerHTML = `
+    <h2>${escapeHtml(s.fullName)}</h2>
+    <p class="detail-subtitle">${s.grade ? "Grade " + escapeHtml(s.grade) : ""}</p>
+    <p class="detail-subtitle">${escapeHtml(s.center || "")}</p>`;
+
+  const item = (label, html, wide) => (html ? `<div class="detail-item${wide ? " detail-item-wide" : ""}"><dt>${escapeHtml(label)}</dt><dd>${html}</dd></div>` : "");
+  const text = (v) => (v ? escapeHtml(v) : "");
+  const section = (title, items) => (items.join("") ? `<section class="detail-section"><h3>${escapeHtml(title)}</h3><dl class="detail-section-grid">${items.join("")}</dl></section>` : "");
+  const chips = (s.activities || []).map((a) => `<span class="position-pill">${escapeHtml(a)}</span>`).join(" ");
+
+  el.stuDetailFields.innerHTML = [
+    section("Student", [
+      item("Grade", text(s.grade)), item("Age", s.age != null ? String(s.age) : ""), item("Date of Birth", text(s.dob)),
+      item("High School", text(s.highSchool)), item("Email", text(s.email)), item("Phone", text(s.phone)),
+      item("Submitted", text(s.submittedAt)),
+    ]),
+    section("REC & Jamati", [
+      item("RE Center", text(s.center)), item("Jamatkhana", text(s.jamatkhana)),
+      item("Jamati activities outside REC", chips, true),
+      item("Interested in Jamati leadership / volunteering", answerPillHtml(s.jamatiInterest)),
+      item("Interested in retreats / overnight programs", answerPillHtml(s.retreats)),
+      item("Interested in camp programs (Ginans, Qasidas, Du'a)", answerPillHtml(s.camp)),
+    ]),
+    section("REC Interests & Engagement", [
+      item("Most interested in learning", text(s.interests), true),
+      item("Challenges to participating", text(s.challenges), true),
+      item("What would make REC more meaningful", text(s.meaningful), true),
+    ]),
+    section("After High School", [
+      item("Plans after high school", text(s.plans)),
+      item("Interested in career mentorship", answerPillHtml(s.mentors)),
+      item("Career fields and what to study", text(s.careers), true),
+    ]),
+  ].join("");
+
+  const list = sortedStudents();
+  const idx = list.findIndex((x) => x.id === id);
+  el.stuDetailNavCount.textContent = idx > -1 ? `${idx + 1} of ${list.length}` : "";
+  el.stuDetailPrevBtn.disabled = idx <= 0;
+  el.stuDetailNextBtn.disabled = idx === -1 || idx >= list.length - 1;
+  el.stuDetailFields.scrollTop = 0;
+  el.stuOverlay.classList.remove("hidden");
+}
+
+function stepStudent(delta) {
+  const list = sortedStudents();
+  const idx = list.findIndex((x) => x.id === studentCurrentId);
+  const target = list[idx + delta];
+  if (idx > -1 && target) openStudent(target.id);
+}
+
+function closeStudent() {
+  el.stuOverlay.classList.add("hidden");
+}
+
+function exportStudents() {
+  const rows = sortedStudents().map((s) => ({
+    "Full Name": s.fullName, "Grade": s.grade, "Age": s.age ?? "", "Date of Birth": s.dob,
+    "Email": s.email, "Phone": s.phone, "High School": s.highSchool, "RE Center": s.center, "Jamatkhana": s.jamatkhana,
+    "Jamati Activities": (s.activities || []).join(", "),
+    "Interested in Jamati Leadership/Volunteering": s.jamatiInterest, "Interested in Retreats": s.retreats,
+    "Interested in Camp Programs": s.camp, "Most Interested In Learning": s.interests, "Challenges": s.challenges,
+    "What Would Make REC More Meaningful": s.meaningful, "Plans After High School": s.plans,
+    "Career Interests": s.careers, "Interested in Mentorship": s.mentors, "Headshot URL": s.photoUrl, "Submitted At": s.submittedAt,
+  }));
+  if (rows.length === 0) { alert("No students to export with the current filters."); return; }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Students");
+  XLSX.writeFile(wb, `step-student-profiles_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+function enterStudents() {
+  el.hubRoot.classList.add("hidden");
+  el.studentsRoot.classList.remove("hidden");
+  loadStudents();
+}
+
+el.stuSearchInput.addEventListener("input", () => { studentFilters.search = el.stuSearchInput.value; studentPage = 1; renderStudents(); });
+el.stuClearBtn.addEventListener("click", () => {
+  studentFilters.search = "";
+  el.stuSearchInput.value = "";
+  ["centers", "grades", "highSchools", "jamatkhanas", "plans", "interests", "activities"].forEach((k) => studentFilters[k].clear());
+  Object.values(studentMS).forEach((c) => { c.updateBadge(); c.refreshIfOpen(); });
+  studentPage = 1;
+  renderStudents();
+});
+el.stuExportBtn.addEventListener("click", exportStudents);
+el.stuRefreshBtn.addEventListener("click", () => loadStudents({ forceFresh: true }));
+el.stuLockBtn.addEventListener("click", () => auth.signOut());
+el.stuBackBtn.addEventListener("click", showHub);
+el.stuCloseDetail.addEventListener("click", closeStudent);
+el.stuOverlay.addEventListener("click", (e) => { if (e.target === el.stuOverlay) closeStudent(); });
+el.stuDetailPrevBtn.addEventListener("click", () => stepStudent(-1));
+el.stuDetailNextBtn.addEventListener("click", () => stepStudent(1));
+document.querySelectorAll("#stuTable thead th[data-key]").forEach((th) =>
+  th.addEventListener("click", () => {
+    if (studentSortKey === th.dataset.key) studentSortDir = studentSortDir === "asc" ? "desc" : "asc";
+    else { studentSortKey = th.dataset.key; studentSortDir = "asc"; }
+    renderStudents();
+  })
+);
+document.addEventListener("keydown", (e) => {
+  if (el.stuOverlay.classList.contains("hidden")) return;
+  if (e.key === "Escape") closeStudent();
+  if (e.key === "ArrowRight" && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || "")) { e.preventDefault(); stepStudent(1); }
+  if (e.key === "ArrowLeft" && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || "")) { e.preventDefault(); stepStudent(-1); }
+});
+if (el.moduleStudentsBtn) el.moduleStudentsBtn.addEventListener("click", enterStudents);
+
 // ===== Admin module =====
 // Manages the Coordinators sheet from the UI. Everyone has one of three
 // roles (Admin, Board Member, Principal); a Principal is also limited to the
@@ -1771,8 +2125,8 @@ async function loadAttendance({ forceFresh = false } = {}) {
 
 const ADMIN_ROLES = [
   { value: "Principal", title: "Principal", desc: "Limited to the centers and grade levels you pick below." },
-  { value: "Board Member", title: "Board Member", desc: "Everything except this Admin screen." },
-  { value: "Admin", title: "Admin", desc: "Everything, including this Admin screen." },
+  { value: "Board Member", title: "Board Member", desc: "Everything except the Admin screen. STEP Student Profile only if you tick it below." },
+  { value: "Admin", title: "Admin", desc: "Everything, including the Admin screen and STEP Student Profile." },
 ];
 const ADMIN_ROLE_ORDER = { Admin: 0, "Board Member": 1, Principal: 2 };
 
@@ -1864,6 +2218,10 @@ function personFormHtml(c, { withEmail = false } = {}) {
         <input type="checkbox" data-field="canEdit" ${c.canEdit ? "checked" : ""} />
         Can edit volunteer records <small>(only the volunteers they can see)</small>
       </label>
+      <label class="admin-checkbox" data-student-box>
+        <input type="checkbox" data-field="studentAccess" ${c.studentAccess ? "checked" : ""} />
+        Can view STEP Student Profile <small>(student data. Board Members only; Principals can never see it)</small>
+      </label>
       <label class="admin-field">
         <span>Notes <em>(optional)</em></span>
         <input type="text" data-field="notes" value="${escapeAttr(c.notes || "")}" />
@@ -1878,6 +2236,8 @@ function syncPersonForm(form) {
   const checkedRole = form.querySelector('input[data-field="role"]:checked');
   const role = checkedRole ? checkedRole.value : "Principal";
   form.querySelector("[data-scope]").classList.toggle("hidden", role !== "Principal");
+  const studentBox = form.querySelector("[data-student-box]");
+  if (studentBox) studentBox.classList.toggle("hidden", role !== "Board Member");
   form.querySelectorAll(".admin-role-choice").forEach((label) => {
     label.classList.toggle("selected", label.querySelector("input").checked);
   });
@@ -1904,6 +2264,7 @@ function readPersonForm(form) {
     allGrades: form.querySelector('input[data-field="allGrades"]').checked,
     grades: checked("grade"),
     canEdit: form.querySelector('input[data-field="canEdit"]').checked,
+    studentAccess: form.querySelector('input[data-field="studentAccess"]').checked,
     notes: form.querySelector('input[data-field="notes"]').value.trim(),
   };
 }
@@ -1921,6 +2282,7 @@ function personCardHtml(c) {
         <div class="admin-person-scope">
           ${adminScopeHtml(c)}
           ${c.canEdit ? "<small>Can edit volunteer records</small>" : ""}
+          ${c.role === "Board Member" && c.studentAccess ? "<small>Can view STEP Student Profile</small>" : ""}
         </div>
         <button type="button" class="ghost-btn" data-action="toggle-edit">Edit</button>
       </div>
@@ -2119,6 +2481,7 @@ async function addCoordinators() {
         allGrades: values.allGrades,
         grades: values.grades,
         canEdit: values.canEdit,
+        studentAccess: values.studentAccess,
         notes: values.notes,
       });
       upsertLocalCoordinator(saved);
@@ -2191,6 +2554,7 @@ async function saveCoordinatorCard(card) {
       allGrades: values.allGrades,
       grades: values.grades,
       canEdit: values.canEdit,
+      studentAccess: values.studentAccess,
       notes: values.notes,
     });
     upsertLocalCoordinator(saved);
@@ -2445,6 +2809,8 @@ function showHub() {
   el.attendanceRoot.classList.add("hidden");
   el.adminRoot.classList.add("hidden");
   el.pmpRoot.classList.add("hidden");
+  el.studentsRoot.classList.add("hidden");
+  closeStudent();
   closeAttendanceTrend();
   closeYoy();
   el.hubRoot.classList.remove("hidden");
@@ -2627,6 +2993,9 @@ auth.onAuthStateChanged((user) => {
     el.attendanceRoot.classList.add("hidden");
     el.adminRoot.classList.add("hidden");
     el.pmpRoot.classList.add("hidden");
+    el.studentsRoot.classList.add("hidden");
+    students = [];
+    closeStudent();
     closeAttendanceTrend();
   closeYoy();
     el.hubRoot.classList.add("hidden");
